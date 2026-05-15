@@ -1,0 +1,19 @@
+[package]
+name = "claudi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "claudi"
+path = "src/main.rs"
+
+[dependencies]
+claudi-protocol.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true }
+clap.workspace = true
+dirs = "5"
+base64 = "0.22"
