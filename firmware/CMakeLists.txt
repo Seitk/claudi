@@ -20,6 +20,7 @@ add_executable(claudi_firmware
     src/protocol.c
     src/display.c
     src/touch.c
+    src/qspi_pio.c
 )
 
 target_include_directories(claudi_firmware PRIVATE src)
@@ -29,6 +30,7 @@ target_link_libraries(claudi_firmware
     pico_unique_id
     pico_bootrom
     hardware_dma
+    hardware_pio
     hardware_spi
     hardware_i2c
     hardware_pwm
