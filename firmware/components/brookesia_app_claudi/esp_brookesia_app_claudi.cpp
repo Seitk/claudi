@@ -189,15 +189,15 @@ bool ClaudiApp::run(void)
     // battery stacked on the left, session count on the right (room for a second
     // right-side bubble later).
     _wifi_bubble = make_bubble(scr, &_wifi_label, 52, 0x1A1A22, &lv_font_montserrat_20);
-    lv_obj_align(_wifi_bubble, LV_ALIGN_CENTER, -158, -40);
+    lv_obj_align(_wifi_bubble, LV_ALIGN_CENTER, -192, -40);
     lv_label_set_text(_wifi_label, LV_SYMBOL_WIFI);
 
     _batt_bubble = make_bubble(scr, &_batt_label, 52, 0x1A1A22, &lv_font_montserrat_20);
-    lv_obj_align(_batt_bubble, LV_ALIGN_CENTER, -158, 40);
+    lv_obj_align(_batt_bubble, LV_ALIGN_CENTER, -192, 40);
     lv_label_set_text(_batt_label, LV_SYMBOL_BATTERY_FULL);
 
     _sess_bubble = make_bubble(scr, &_sess_label, 52, 0x2E6BE6, &lv_font_montserrat_22);
-    lv_obj_align(_sess_bubble, LV_ALIGN_CENTER, 158, -40);
+    lv_obj_align(_sess_bubble, LV_ALIGN_CENTER, 192, -40);
     lv_label_set_text(_sess_label, "0");
     lv_obj_add_flag(_sess_bubble, LV_OBJ_FLAG_HIDDEN);
 
