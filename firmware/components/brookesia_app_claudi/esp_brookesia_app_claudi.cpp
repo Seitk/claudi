@@ -185,22 +185,19 @@ bool ClaudiApp::run(void)
     lv_image_set_scale(_pet, 360);
     lv_obj_align(_pet, LV_ALIGN_CENTER, 0, 4);
 
-    // Floating status bubbles near the top: Wi-Fi (left) and battery (right)
-    // flank the center; the live-session count sits just below, shown only when
-    // sessions > 0.
-    // Beads along the top arc (radius ~150 about screen center): Wi-Fi on the
-    // upper-left, the session count at top, battery on the upper-right. Nothing
-    // sits in the screen center.
+    // Bubbles on the left and right rails (clear of the centered pet): Wi-Fi and
+    // battery stacked on the left, session count on the right (room for a second
+    // right-side bubble later).
     _wifi_bubble = make_bubble(scr, &_wifi_label, 52, 0x1A1A22, &lv_font_montserrat_20);
-    lv_obj_align(_wifi_bubble, LV_ALIGN_CENTER, -106, -106);
+    lv_obj_align(_wifi_bubble, LV_ALIGN_CENTER, -158, -40);
     lv_label_set_text(_wifi_label, LV_SYMBOL_WIFI);
 
     _batt_bubble = make_bubble(scr, &_batt_label, 52, 0x1A1A22, &lv_font_montserrat_20);
-    lv_obj_align(_batt_bubble, LV_ALIGN_CENTER, 106, -106);
+    lv_obj_align(_batt_bubble, LV_ALIGN_CENTER, -158, 40);
     lv_label_set_text(_batt_label, LV_SYMBOL_BATTERY_FULL);
 
     _sess_bubble = make_bubble(scr, &_sess_label, 52, 0x2E6BE6, &lv_font_montserrat_22);
-    lv_obj_align(_sess_bubble, LV_ALIGN_CENTER, 0, -150);
+    lv_obj_align(_sess_bubble, LV_ALIGN_CENTER, 158, -40);
     lv_label_set_text(_sess_label, "0");
     lv_obj_add_flag(_sess_bubble, LV_OBJ_FLAG_HIDDEN);
 
@@ -380,9 +377,13 @@ void ClaudiApp::applyState(void)
     // Bottom status line.
     lv_label_set_text(_transcript, snap.msg);
 
-    // Approval card.
-    const bool needs_human = snap.waiting || snap.prompt.set;
-    if (needs_human) {
+    // Approval card. Shown ONLY for an actionable on-device approval (a prompt
+    // with buttons the device can actually resolve via /decision). Plain
+    // `waiting` (a terminal question / plan approval / idle "waiting for input")
+    // is surfaced through the attention ring + status line above, with no
+    // Approve/Deny buttons the device can't honour.
+    const bool actionable = snap.prompt.set;
+    if (actionable) {
         if (_attention_since_ms == 0) {
             _attention_since_ms = now;
         }
