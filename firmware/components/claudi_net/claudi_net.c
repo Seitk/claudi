@@ -40,6 +40,11 @@ static volatile bool s_connected;
 static char s_ip[16] = "0.0.0.0";
 static httpd_handle_t s_httpd;
 
+// Approval return-channel: the id of the prompt currently awaiting a decision
+// and the decision made for it (CLAUDI_DECISION_*). Guarded by s_mtx.
+static char s_pending_id[CLAUDI_ID_LEN];
+static int s_decision;
+
 static uint32_t now_ms(void)
 {
     return (uint32_t)(esp_timer_get_time() / 1000);
@@ -77,6 +82,26 @@ bool claudi_net_is_connected(void)
 const char *claudi_net_ip(void)
 {
     return s_ip;
+}
+
+bool claudi_net_pending(void)
+{
+    lock();
+    bool p = (s_pending_id[0] != '\0') && (s_decision == CLAUDI_DECISION_PENDING);
+    unlock();
+    return p;
+}
+
+void claudi_net_post_decision(int decision)
+{
+    lock();
+    if (s_pending_id[0] != '\0' && s_decision == CLAUDI_DECISION_PENDING) {
+        s_decision = decision;
+        // Hide the approval card promptly; the polling hook will also clear it.
+        s_snap.waiting = false;
+        s_snap.prompt.set = false;
+    }
+    unlock();
 }
 
 // --------------------------------------------------------------------------- //
@@ -143,6 +168,18 @@ static void apply_snapshot_json(const cJSON *root)
 
     lock();
     s_snap = tmp;
+    // Track the approval request: a new prompt id resets the decision to pending;
+    // clearing the prompt (no waiting) clears the pending request entirely.
+    if (tmp.prompt.set && tmp.prompt.id[0]) {
+        if (strcmp(s_pending_id, tmp.prompt.id) != 0) {
+            strncpy(s_pending_id, tmp.prompt.id, sizeof(s_pending_id) - 1);
+            s_pending_id[sizeof(s_pending_id) - 1] = '\0';
+            s_decision = CLAUDI_DECISION_PENDING;
+        }
+    } else if (!tmp.waiting) {
+        s_pending_id[0] = '\0';
+        s_decision = CLAUDI_DECISION_PENDING;
+    }
     unlock();
 
     ESP_LOGI(TAG, "snapshot: running=%d waiting=%d total=%d overlay=%s msg='%s'",
@@ -254,6 +291,38 @@ static esp_err_t render_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+// GET /decision?id=<req_id> — the polling hook reads the user's button/touch
+// decision for a pending approval. Returns the decision only if <id> matches the
+// currently pending prompt (so a stale poll can't read a newer request's answer).
+static esp_err_t decision_get_handler(httpd_req_t *req)
+{
+    char query[96] = {0};
+    char id[CLAUDI_ID_LEN] = {0};
+    httpd_req_get_url_query_str(req, query, sizeof(query));
+    httpd_query_key_value(query, "id", id, sizeof(id));
+
+    lock();
+    bool match = (id[0] == '\0') || (strcmp(id, s_pending_id) == 0);
+    int d = match ? s_decision : CLAUDI_DECISION_PENDING;
+    char pid[CLAUDI_ID_LEN];
+    strncpy(pid, s_pending_id, sizeof(pid) - 1);
+    pid[sizeof(pid) - 1] = '\0';
+    unlock();
+
+    const char *ds = "pending";
+    switch (d) {
+    case CLAUDI_DECISION_APPROVE: ds = "approve"; break;
+    case CLAUDI_DECISION_DENY:    ds = "deny";    break;
+    case CLAUDI_DECISION_DISMISS: ds = "dismiss"; break;
+    default:                      ds = "pending"; break;
+    }
+    char out[96];
+    snprintf(out, sizeof(out), "{\"id\":\"%s\",\"decision\":\"%s\"}", pid, ds);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, out);
+    return ESP_OK;
+}
+
 static void start_httpd(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -268,6 +337,7 @@ static void start_httpd(void)
         {.uri = "/status",    .method = HTTP_GET,  .handler = status_get_handler},
         {.uri = "/pet/state", .method = HTTP_GET,  .handler = pet_state_get_handler},
         {.uri = "/render",    .method = HTTP_GET,  .handler = render_get_handler},
+        {.uri = "/decision",  .method = HTTP_GET,  .handler = decision_get_handler},
     };
     for (size_t i = 0; i < sizeof(uris) / sizeof(uris[0]); ++i) {
         httpd_register_uri_handler(s_httpd, &uris[i]);

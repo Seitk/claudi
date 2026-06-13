@@ -8,7 +8,7 @@ file(GLOB_RECURSE PROJ_SRCS_C ${PROJ_SRC}/assets/*.c)
 idf_component_register(
     SRCS ${PROJ_SRCS_CPP} ${PROJ_SRCS_C}
     INCLUDE_DIRS ${PROJ_SRC}
-    REQUIRES claudi_core claudi_net
+    REQUIRES claudi_core claudi_net button
     WHOLE_ARCHIVE
 )
 

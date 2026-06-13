@@ -74,12 +74,38 @@ tools/replay_snapshot.sh http://claudi.local
 # or: python3 ../.claude/hooks/claudi_hook.py --ping
 ```
 
-## V1 scope / roadmap
+## On-device approval (V2, opt-in)
 
-V1 is **display-only**: the pet is drawn programmatically (a state-colored
-animated blob + eyes + HUD). Planned next:
+The device can approve/deny Claude Code tool calls via a return channel:
 
-- **Pet art:** swap the programmatic blob for `lv_gif` packs on the `assets`
-  LittleFS partition (re-render the existing slime art to 466×466).
-- **V2 — touch Approve/Deny:** use CST9217 + a blocking return-channel hook.
-- **V3 — voice:** ES8311/ES7210 mic + speaker.
+- The device shows an **approval card** with on-screen **Approve / Deny / Skip**
+  buttons (touch), plus the **BOOT/GPIO0** button (short press = approve, long
+  press = deny). "Skip" / timeout defers to the normal terminal prompt.
+- `GET /decision?id=<id>` reports the decision; `claudi_net_post_decision()` is
+  called by the button/touch handlers.
+- The hook (`.claude/hooks/claudi_hook.py`) gates `PreToolUse`: it posts the
+  pending tool to the device, polls `/decision`, and returns a
+  `permissionDecision` (allow/deny/ask) to Claude Code.
+
+**Enable it** (off by default — when on, gated tools block until you decide,
+which also affects the session whose hooks are loaded):
+
+```sh
+export CLAUDI_APPROVAL=true            # master switch
+export CLAUDI_APPROVAL_TOOLS="Bash,Edit,Write,MultiEdit"  # default "*" = all tools
+export CLAUDI_APPROVAL_TIMEOUT=30      # seconds before auto-Skip -> terminal
+```
+
+or add these under `"env"` in `.claude/settings.json`. If the device is
+unreachable the hook never blocks (normal flow).
+
+> Note: the physical button is wired to GPIO0 (BOOT). This board has two keys +
+> an AXP2101 power key; if your button isn't GPIO0, the on-screen buttons still
+> work — tell us the GPIO to map the tactile one.
+
+## Roadmap
+
+- **Pet art:** optionally move the embedded images to `lv_gif` packs on the
+  `assets` LittleFS partition (OTA-swappable) — currently embedded as LVGL C
+  arrays from `tools/gen_pet_assets.py`.
+- **V3 — voice:** ES8311/ES7210 mic + speaker (re-add the trimmed AI deps).

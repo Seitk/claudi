@@ -1,3 +1,4 @@
 dependencies:
   brookesia_core:
     public: true
+  espressif/button: "^4.1"

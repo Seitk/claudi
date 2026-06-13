@@ -18,9 +18,26 @@
 extern "C" {
 #endif
 
+// Approval decision values for the device button/touch return-channel.
+// Reported by GET /decision and set by the UI via claudi_net_post_decision().
+enum {
+    CLAUDI_DECISION_PENDING = 0,
+    CLAUDI_DECISION_APPROVE,
+    CLAUDI_DECISION_DENY,
+    CLAUDI_DECISION_DISMISS,
+};
+
 // Start Wi-Fi STA, mDNS, and the HTTP server. Safe to call once after the
 // display/Brookesia are up. Non-blocking: connection proceeds in the background.
 void claudi_net_start(void);
+
+// True if an approval request is currently shown and awaiting a decision.
+bool claudi_net_pending(void);
+
+// Record the user's decision for the pending approval (CLAUDI_DECISION_*).
+// No-op if nothing is pending. Called from the button/touch handlers; the
+// polling hook reads the result via GET /decision.
+void claudi_net_post_decision(int decision);
 
 // Copy the current snapshot under lock. `out` must be non-NULL.
 void claudi_net_get_snapshot(claudi_snapshot_t *out);

@@ -35,14 +35,22 @@ private:
     static void onTick(lv_timer_t *timer);
     void applyState(void);
 
+    // Lay `text` along the top arc (round-screen status). Rebuilds the per-char
+    // labels only when the text or colour changes.
+    static constexpr int kMaxArcChars = 28;
+    void setArcText(const char *text, uint32_t color);
+
     // Widgets (created in run(); auto-recycled by the core on close).
     lv_obj_t *_pet = nullptr;        // lv_animimg playing the per-state slime art
-    lv_obj_t *_status = nullptr;     // top status chip label
-    lv_obj_t *_transcript = nullptr; // bottom transcript label
+    lv_obj_t *_ring = nullptr;       // perimeter ring, coloured by state
+    lv_obj_t *_arc_chars[kMaxArcChars] = {nullptr};  // curved status text
+    lv_obj_t *_transcript = nullptr; // bottom status line
     lv_obj_t *_card = nullptr;       // approval card container
     lv_obj_t *_card_label = nullptr; // approval card text
     lv_timer_t *_timer = nullptr;
 
+    char _arc_cache[48] = "";        // last arc string (avoid rebuilds)
+    uint32_t _arc_color = 0;         // last arc colour
     int _last_state = -1;            // last effective state (avoid redundant work)
     uint32_t _attention_since_ms = 0;  // for the ~10s approval escalation
 };
