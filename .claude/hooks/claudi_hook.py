@@ -321,7 +321,11 @@ def apply_event(state: dict, payload: dict):
         overlay, overlay_ms = "curious", 1500
 
     elif event == "PreToolUse":
-        state["waiting"] = False  # Claude is proceeding, not blocked
+        # Claude is proceeding -> the human is no longer being waited on. Clear
+        # BOTH waiting and prompt; otherwise a prior Notification's prompt sticks
+        # and the device keeps re-showing the (already-answered) approval card.
+        state["waiting"] = False
+        state["prompt"] = None
         state["running"] = max(0, int(state.get("running", 0))) + 1
         state["total"] = int(state.get("total", 0)) + 1
         _add_entry(state, f"> {tool or 'tool'}")
@@ -329,6 +333,12 @@ def apply_event(state: dict, payload: dict):
         overlay = _overlay_for_pre(tool)
 
     elif event == "PostToolUse":
+        # A tool finished -> Claude is active again, not blocked on the human. This
+        # is the key clear for AskUserQuestion / permission prompts: the human has
+        # already answered (in the terminal) by the time the tool returns, so drop
+        # any lingering waiting/prompt instead of leaving the card up forever.
+        state["waiting"] = False
+        state["prompt"] = None
         state["running"] = max(0, int(state.get("running", 0)) - 1)
         _add_entry(state, f"ok {tool or 'tool'}")
         state["msg"] = f"done {tool or 'tool'}"
@@ -351,6 +361,8 @@ def apply_event(state: dict, payload: dict):
         state["msg"] = "turn done"
 
     elif event == "SubagentStop":
+        state["waiting"] = False
+        state["prompt"] = None
         state["running"] = max(0, int(state.get("running", 0)) - 1)
         state["msg"] = "subagent done"
         overlay, overlay_ms = "happy", 2000
@@ -658,6 +670,15 @@ def self_test() -> int:
         ({"hook_event_name": "PostToolUse", "session_id": "s1", "tool_name": "Edit"}, "working"),
         ({"hook_event_name": "PostToolUse", "session_id": "s1", "tool_name": "Bash"}, "idle"),
         ({"hook_event_name": "Notification", "session_id": "s1", "message": "approve Bash?"}, "attention"),
+        # Regression: a Notification raises waiting+prompt, but once the human has
+        # responded Claude resumes tool activity. Those activity events MUST clear
+        # waiting/prompt or the device keeps re-showing the (already-answered)
+        # approval card forever ("appears again, can't be dismissed").
+        ({"hook_event_name": "Notification", "session_id": "s1", "message": "which option?"}, "attention"),
+        ({"hook_event_name": "PostToolUse", "session_id": "s1", "tool_name": "AskUserQuestion"}, "idle"),
+        ({"hook_event_name": "Notification", "session_id": "s1", "message": "approve Bash?"}, "attention"),
+        ({"hook_event_name": "PreToolUse", "session_id": "s1", "tool_name": "Bash"}, "working"),
+        ({"hook_event_name": "PostToolUse", "session_id": "s1", "tool_name": "Bash"}, "idle"),
         ({"hook_event_name": "Stop", "session_id": "s1"}, "idle"),
         # New session id must reset cleanly:
         ({"hook_event_name": "PreToolUse", "session_id": "s2", "tool_name": "Bash"}, "working"),
