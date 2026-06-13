@@ -188,16 +188,19 @@ bool ClaudiApp::run(void)
     // Floating status bubbles near the top: Wi-Fi (left) and battery (right)
     // flank the center; the live-session count sits just below, shown only when
     // sessions > 0.
+    // Beads along the top arc (radius ~150 about screen center): Wi-Fi on the
+    // upper-left, the session count at top, battery on the upper-right. Nothing
+    // sits in the screen center.
     _wifi_bubble = make_bubble(scr, &_wifi_label, 52, 0x1A1A22, &lv_font_montserrat_20);
-    lv_obj_align(_wifi_bubble, LV_ALIGN_TOP_MID, -74, 92);
+    lv_obj_align(_wifi_bubble, LV_ALIGN_CENTER, -106, -106);
     lv_label_set_text(_wifi_label, LV_SYMBOL_WIFI);
 
     _batt_bubble = make_bubble(scr, &_batt_label, 52, 0x1A1A22, &lv_font_montserrat_20);
-    lv_obj_align(_batt_bubble, LV_ALIGN_TOP_MID, 74, 92);
+    lv_obj_align(_batt_bubble, LV_ALIGN_CENTER, 106, -106);
     lv_label_set_text(_batt_label, LV_SYMBOL_BATTERY_FULL);
 
     _sess_bubble = make_bubble(scr, &_sess_label, 52, 0x2E6BE6, &lv_font_montserrat_22);
-    lv_obj_align(_sess_bubble, LV_ALIGN_TOP_MID, 0, 150);
+    lv_obj_align(_sess_bubble, LV_ALIGN_CENTER, 0, -150);
     lv_label_set_text(_sess_label, "0");
     lv_obj_add_flag(_sess_bubble, LV_OBJ_FLAG_HIDDEN);
 
