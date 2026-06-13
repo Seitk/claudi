@@ -135,6 +135,27 @@ static lv_obj_t *make_card_button(lv_obj_t *parent, const char *text, uint32_t b
     return btn;
 }
 
+// A floating circular status bubble with a centered text/glyph label.
+static lv_obj_t *make_bubble(lv_obj_t *parent, lv_obj_t **out_label, int size,
+                             uint32_t bg, const lv_font_t *font)
+{
+    lv_obj_t *b = lv_obj_create(parent);
+    lv_obj_set_size(b, size, size);
+    lv_obj_set_style_radius(b, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(b, lv_color_hex(bg), 0);
+    lv_obj_set_style_bg_opa(b, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(b, 0, 0);
+    lv_obj_set_style_pad_all(b, 0, 0);
+    lv_obj_clear_flag(b, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_clear_flag(b, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *lab = lv_label_create(b);
+    lv_obj_set_style_text_font(lab, font, 0);
+    lv_obj_set_style_text_color(lab, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_center(lab);
+    *out_label = lab;
+    return b;
+}
+
 bool ClaudiApp::run(void)
 {
     ESP_UTILS_LOGI("claudi run");
@@ -164,42 +185,21 @@ bool ClaudiApp::run(void)
     lv_image_set_scale(_pet, 360);
     lv_obj_align(_pet, LV_ALIGN_CENTER, 0, 4);
 
-    // Icon row (Wi-Fi + battery), just under the top arc.
-    _icons = lv_obj_create(scr);
-    lv_obj_set_size(_icons, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(_icons, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(_icons, 0, 0);
-    lv_obj_set_style_pad_all(_icons, 0, 0);
-    lv_obj_set_style_pad_column(_icons, 16, 0);
-    lv_obj_set_flex_flow(_icons, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(_icons, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_align(_icons, LV_ALIGN_TOP_MID, 0, 60);
-    lv_obj_clear_flag(_icons, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_clear_flag(_icons, LV_OBJ_FLAG_SCROLLABLE);
+    // Floating status bubbles near the top: Wi-Fi (left) and battery (right)
+    // flank the center; the live-session count sits just below, shown only when
+    // sessions > 0.
+    _wifi_bubble = make_bubble(scr, &_wifi_label, 52, 0x1A1A22, &lv_font_montserrat_20);
+    lv_obj_align(_wifi_bubble, LV_ALIGN_TOP_MID, -74, 92);
+    lv_label_set_text(_wifi_label, LV_SYMBOL_WIFI);
 
-    _ico_wifi = lv_label_create(_icons);
-    lv_obj_set_style_text_font(_ico_wifi, &lv_font_montserrat_20, 0);
-    lv_label_set_text(_ico_wifi, LV_SYMBOL_WIFI);
+    _batt_bubble = make_bubble(scr, &_batt_label, 52, 0x1A1A22, &lv_font_montserrat_20);
+    lv_obj_align(_batt_bubble, LV_ALIGN_TOP_MID, 74, 92);
+    lv_label_set_text(_batt_label, LV_SYMBOL_BATTERY_FULL);
 
-    _ico_batt = lv_label_create(_icons);
-    lv_obj_set_style_text_font(_ico_batt, &lv_font_montserrat_20, 0);
-    lv_label_set_text(_ico_batt, LV_SYMBOL_BATTERY_FULL);
-
-    // Floating session-count bubble (upper-right), shown only when sessions > 0.
-    _sess_bubble = lv_obj_create(scr);
-    lv_obj_set_size(_sess_bubble, 46, 46);
-    lv_obj_set_style_radius(_sess_bubble, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(_sess_bubble, lv_color_hex(0x2E6BE6), 0);
-    lv_obj_set_style_border_width(_sess_bubble, 0, 0);
-    lv_obj_align(_sess_bubble, LV_ALIGN_TOP_RIGHT, -70, 96);
-    lv_obj_clear_flag(_sess_bubble, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_clear_flag(_sess_bubble, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(_sess_bubble, LV_OBJ_FLAG_HIDDEN);
-    _sess_label = lv_label_create(_sess_bubble);
-    lv_obj_set_style_text_font(_sess_label, &lv_font_montserrat_22, 0);
-    lv_obj_set_style_text_color(_sess_label, lv_color_hex(0xFFFFFF), 0);
+    _sess_bubble = make_bubble(scr, &_sess_label, 52, 0x2E6BE6, &lv_font_montserrat_22);
+    lv_obj_align(_sess_bubble, LV_ALIGN_TOP_MID, 0, 150);
     lv_label_set_text(_sess_label, "0");
-    lv_obj_center(_sess_label);
+    lv_obj_add_flag(_sess_bubble, LV_OBJ_FLAG_HIDDEN);
 
     // Bottom status line.
     _transcript = lv_label_create(scr);
@@ -341,22 +341,24 @@ void ClaudiApp::applyState(void)
     // Curved status (state word only — stable, so it rarely rebuilds).
     setArcText(st.tag, st.body);
 
-    // Wi-Fi icon.
-    lv_obj_set_style_text_color(_ico_wifi, lv_color_hex(wifi ? 0xE6E6F0 : 0x55555F), 0);
+    // Wi-Fi bubble: glyph brightens when connected, bubble tints green.
+    lv_obj_set_style_text_color(_wifi_label, lv_color_hex(wifi ? 0xE6E6F0 : 0x55555F), 0);
+    lv_obj_set_style_bg_color(_wifi_bubble, lv_color_hex(wifi ? 0x1E2A20 : 0x1A1A22), 0);
 
-    // Battery icon (polled every few seconds; I2C is comparatively slow).
+    // Battery bubble (polled every few seconds; I2C is comparatively slow).
     uint32_t now = now_ms();
     if (_batt_pct < 0 || (now - _last_batt_ms) > BATTERY_POLL_MS) {
         _batt_pct = claudi_power_battery_percent();
         _charging = claudi_power_charging();
         _last_batt_ms = now;
         if (_batt_pct < 0) {
-            lv_obj_add_flag(_ico_batt, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(_batt_bubble, LV_OBJ_FLAG_HIDDEN);
         } else {
-            lv_obj_clear_flag(_ico_batt, LV_OBJ_FLAG_HIDDEN);
-            lv_label_set_text_fmt(_ico_batt, "%s %d%%", batt_symbol(_batt_pct, _charging), _batt_pct);
-            uint32_t c = (_batt_pct < 15 && !_charging) ? 0xE8533F : 0xE6E6F0;
-            lv_obj_set_style_text_color(_ico_batt, lv_color_hex(c), 0);
+            lv_obj_clear_flag(_batt_bubble, LV_OBJ_FLAG_HIDDEN);
+            lv_label_set_text(_batt_label, batt_symbol(_batt_pct, _charging));
+            bool low = (_batt_pct < 15 && !_charging);
+            lv_obj_set_style_text_color(_batt_label, lv_color_hex(low ? 0xE8533F : 0xE6E6F0), 0);
+            lv_obj_set_style_bg_color(_batt_bubble, lv_color_hex(low ? 0x2A1212 : 0x1A1A22), 0);
         }
     }
 

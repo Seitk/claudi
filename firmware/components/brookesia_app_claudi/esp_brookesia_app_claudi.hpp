@@ -44,11 +44,12 @@ private:
     lv_obj_t *_pet = nullptr;        // lv_animimg playing the per-state slime art
     lv_obj_t *_ring = nullptr;       // perimeter ring, coloured by state
     lv_obj_t *_arc_chars[kMaxArcChars] = {nullptr};  // curved status text (state word)
-    lv_obj_t *_icons = nullptr;      // top icon row container
-    lv_obj_t *_ico_wifi = nullptr;   // wifi connection icon
-    lv_obj_t *_ico_batt = nullptr;   // battery icon + percent
-    lv_obj_t *_sess_bubble = nullptr;// floating bubble showing live-session count
-    lv_obj_t *_sess_label = nullptr; // count text inside the bubble
+    lv_obj_t *_wifi_bubble = nullptr; // floating Wi-Fi bubble
+    lv_obj_t *_wifi_label = nullptr;
+    lv_obj_t *_batt_bubble = nullptr; // floating battery bubble
+    lv_obj_t *_batt_label = nullptr;
+    lv_obj_t *_sess_bubble = nullptr; // floating live-session-count bubble
+    lv_obj_t *_sess_label = nullptr;
     lv_obj_t *_transcript = nullptr; // bottom status line
     lv_obj_t *_card = nullptr;       // approval card container
     lv_obj_t *_card_label = nullptr; // approval card text
