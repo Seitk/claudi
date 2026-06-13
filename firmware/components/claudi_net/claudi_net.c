@@ -120,6 +120,9 @@ static void apply_snapshot_json(const cJSON *root)
     if ((j = cJSON_GetObjectItemCaseSensitive(root, "running")) && cJSON_IsNumber(j)) {
         tmp.running = (int32_t)j->valuedouble;
     }
+    if ((j = cJSON_GetObjectItemCaseSensitive(root, "sessions")) && cJSON_IsNumber(j)) {
+        tmp.sessions = (int32_t)j->valuedouble;
+    }
     if ((j = cJSON_GetObjectItemCaseSensitive(root, "waiting"))) {
         // hook sends 0/1 (number) or bool
         tmp.waiting = cJSON_IsTrue(j) || (cJSON_IsNumber(j) && j->valuedouble != 0);

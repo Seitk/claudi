@@ -43,7 +43,12 @@ private:
     // Widgets (created in run(); auto-recycled by the core on close).
     lv_obj_t *_pet = nullptr;        // lv_animimg playing the per-state slime art
     lv_obj_t *_ring = nullptr;       // perimeter ring, coloured by state
-    lv_obj_t *_arc_chars[kMaxArcChars] = {nullptr};  // curved status text
+    lv_obj_t *_arc_chars[kMaxArcChars] = {nullptr};  // curved status text (state word)
+    lv_obj_t *_icons = nullptr;      // top icon row container
+    lv_obj_t *_ico_wifi = nullptr;   // wifi connection icon
+    lv_obj_t *_ico_batt = nullptr;   // battery icon + percent
+    lv_obj_t *_sess_bubble = nullptr;// floating bubble showing live-session count
+    lv_obj_t *_sess_label = nullptr; // count text inside the bubble
     lv_obj_t *_transcript = nullptr; // bottom status line
     lv_obj_t *_card = nullptr;       // approval card container
     lv_obj_t *_card_label = nullptr; // approval card text
@@ -51,8 +56,13 @@ private:
 
     char _arc_cache[48] = "";        // last arc string (avoid rebuilds)
     uint32_t _arc_color = 0;         // last arc colour
+    char _card_cache[160] = "";      // last card text (avoid per-tick relayout)
     int _last_state = -1;            // last effective state (avoid redundant work)
+    int _last_sessions = -1;         // last session count (gate bubble updates)
     uint32_t _attention_since_ms = 0;  // for the ~10s approval escalation
+    uint32_t _last_batt_ms = 0;      // throttle battery polling (I2C)
+    int _batt_pct = -1;              // cached battery percent
+    bool _charging = false;          // cached charge state
 };
 
 } // namespace esp_brookesia::apps

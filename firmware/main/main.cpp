@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "bsp/esp-bsp.h"
+#include "bsp/esp32_s3_touch_amoled_1_75.h"
 #include "esp_brookesia.hpp"
 #ifdef ESP_UTILS_LOG_TAG
 #   undef ESP_UTILS_LOG_TAG
@@ -17,6 +18,7 @@
 
 extern "C" {
 #include "claudi_net.h"
+#include "claudi_power.h"
 }
 
 using namespace esp_brookesia;
@@ -29,6 +31,11 @@ extern "C" void app_main(void)
 
     ESP_UTILS_CHECK_NULL_EXIT(bsp_display_start(), "Start display failed");
     ESP_UTILS_CHECK_ERROR_EXIT(bsp_display_backlight_on(), "Turn on display backlight failed");
+
+    // Battery PMU (AXP2101) on the BSP I2C bus, for the battery icon.
+    if (!claudi_power_init(bsp_i2c_get_handle())) {
+        ESP_UTILS_LOGW("PMU init failed; battery icon hidden");
+    }
 
     // Route LVGL locking through the BSP mutex (LVGL is not thread-safe).
     LvLock::registerCallbacks([](int timeout_ms) {

@@ -192,40 +192,76 @@ def _state_lock():
                 pass
 
 
-def load_state(session_id: str) -> dict:
-    """Load the persisted snapshot, resetting on missing/corrupt/new session."""
-    state = None
+# Sessions idle longer than this are pruned (a crashed session can't linger).
+SESSION_TTL = float(os.environ.get("CLAUDI_SESSION_TTL", "900"))
+
+
+def load_all() -> dict:
+    """Load the per-session store: {session_id: session_state}. Prunes stale
+    sessions and migrates a legacy single-state file."""
+    data = None
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as fh:
-            state = json.load(fh)
+            data = json.load(fh)
     except (OSError, ValueError):
-        state = None
+        data = None
 
-    if not isinstance(state, dict) or "running" not in state:
-        return _fresh_state(session_id)
+    sessions = {}
+    if isinstance(data, dict) and isinstance(data.get("sessions"), dict):
+        sessions = data["sessions"]
+    elif isinstance(data, dict) and "running" in data:  # legacy single-state file
+        sid = data.get("session_id") or "legacy"
+        sessions = {sid: data}
 
-    # A new session id means a fresh process/turn: reset counters so a crash or
-    # a missed Post/Stop in a previous session can never drift us forever.
-    if session_id and state.get("session_id") and state["session_id"] != session_id:
-        log(f"[state] session change {state.get('session_id')!r} -> {session_id!r}, reset")
-        return _fresh_state(session_id)
-
-    # Backfill any missing keys defensively.
-    base = _fresh_state(session_id or state.get("session_id", ""))
-    base.update({k: state.get(k, base[k]) for k in base})
-    base["session_id"] = session_id or state.get("session_id", "")
-    return base
+    now = time.time()
+    pruned = {}
+    for sid, s in sessions.items():
+        if isinstance(s, dict) and "running" in s and (now - float(s.get("updated", 0))) < SESSION_TTL:
+            base = _fresh_state(sid)
+            base.update({k: s.get(k, base[k]) for k in base})
+            pruned[sid] = base
+    return pruned
 
 
-def save_state(state: dict) -> None:
-    state["updated"] = time.time()
+def get_session(sessions: dict, session_id: str) -> dict:
+    """Get (or create) the mutable state for one session."""
+    s = sessions.get(session_id)
+    if not isinstance(s, dict) or "running" not in s:
+        s = _fresh_state(session_id)
+        sessions[session_id] = s
+    return s
+
+
+def save_all(sessions: dict) -> None:
     tmp = STATE_FILE + ".tmp"
     try:
         with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump(state, fh)
+            json.dump({"sessions": sessions}, fh)
         os.replace(tmp, STATE_FILE)
     except OSError as exc:
         log(f"[warn] could not persist state: {exc!r}")
+
+
+def aggregate(sessions: dict) -> dict:
+    """Combine all live sessions into one snapshot the device renders:
+    running/total summed, waiting if ANY session waits, transcript + msg from the
+    most recently active session."""
+    agg = {"total": 0, "running": 0, "waiting": False, "prompt": None,
+           "entries": [], "msg": "", "sessions": len(sessions)}
+    latest = None
+    for s in sessions.values():
+        agg["total"] += int(s.get("total", 0))
+        agg["running"] += max(0, int(s.get("running", 0)))
+        if s.get("waiting"):
+            agg["waiting"] = True
+        if agg["prompt"] is None and s.get("prompt"):
+            agg["prompt"] = s["prompt"]
+        if latest is None or float(s.get("updated", 0)) > float(latest.get("updated", 0)):
+            latest = s
+    if latest is not None:
+        agg["entries"] = list(latest.get("entries", []))[-MAX_ENTRIES:]
+        agg["msg"] = latest.get("msg", "")
+    return agg
 
 
 def _add_entry(state: dict, text: str) -> None:
@@ -372,6 +408,7 @@ def build_snapshot(state: dict, event: str, overlay, overlay_ms: int) -> dict:
         "waiting": 1 if state.get("waiting") else 0,
         "msg": state.get("msg", "")[:48],
         "entries": list(state.get("entries", []))[-MAX_ENTRIES:],
+        "sessions": int(state.get("sessions", 0)),
         "source": event,
     }
     if state.get("prompt"):
@@ -578,15 +615,21 @@ def run_from_stdin() -> int:
         if decision in ("deny", "dismiss"):
             return 0
 
+    sid = session_id or "default"
     with _state_lock():
-        state = load_state(session_id)
-        overlay, overlay_ms = apply_event(state, payload)
-        save_state(state)
+        sessions = load_all()
+        sub = get_session(sessions, sid)
+        overlay, overlay_ms = apply_event(sub, payload)
+        sub["updated"] = time.time()
+        if event == "SessionEnd":
+            sessions.pop(sid, None)  # ended sessions stop counting
+        save_all(sessions)
+        agg = aggregate(sessions)
 
     tool = payload.get("tool_name", "")
-    log(f"[event] {event} tool='{tool}' running={state.get('running')} "
-        f"waiting={state.get('waiting')} overlay={overlay or '-'}")
-    send_snapshot(state, event, overlay, overlay_ms)
+    log(f"[event] {event} tool='{tool}' sessions={agg['sessions']} "
+        f"running={agg['running']} waiting={agg['waiting']} overlay={overlay or '-'}")
+    send_snapshot(agg, event, overlay, overlay_ms)
     return 0
 
 
@@ -622,12 +665,19 @@ def self_test() -> int:
     ]
     ok = True
     for payload, expect in sequence:
+        ev = payload["hook_event_name"]
+        sid = payload.get("session_id", "") or "default"
         with _state_lock():
-            state = load_state(payload.get("session_id", ""))
-            overlay, _ = apply_event(state, payload)
-            save_state(state)
-        derived = derive_state(state)
-        running = int(state.get("running", 0))
+            sessions = load_all()
+            sub = get_session(sessions, sid)
+            overlay, _ = apply_event(sub, payload)
+            sub["updated"] = time.time()
+            if ev == "SessionEnd":
+                sessions.pop(sid, None)
+            save_all(sessions)
+            agg = aggregate(sessions)
+        derived = derive_state(agg)
+        running = int(agg.get("running", 0))
         bad = []
         if running < 0:
             bad.append("running<0")
@@ -638,11 +688,11 @@ def self_test() -> int:
         mark = "ok" if not bad else "FAIL"
         if bad:
             ok = False
-        ev = payload["hook_event_name"]
         tool = payload.get("tool_name", "")
         label = f"{ev}{('/' + tool) if tool else ''}"
-        print(f"  [{mark}] {label:<26} run={running} wait={int(bool(state.get('waiting')))} "
-              f"-> base={derived:<10} overlay={overlay or '-':<8} {' '.join(bad)}")
+        print(f"  [{mark}] {label:<26} sess={agg['sessions']} run={running} "
+              f"wait={int(bool(agg.get('waiting')))} -> base={derived:<10} "
+              f"overlay={overlay or '-':<8} {' '.join(bad)}")
 
     for p in (STATE_FILE, STATE_FILE + ".tmp", STATE_FILE + ".lock"):
         with contextlib.suppress(OSError):

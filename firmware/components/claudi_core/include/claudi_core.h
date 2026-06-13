@@ -67,8 +67,9 @@ typedef struct {
 // The aggregated session snapshot. The ingest layer fills this from the hook's
 // POST /snapshot JSON; the host tests fill it directly.
 typedef struct {
-    int32_t  total;        // cumulative tool calls this session
-    int32_t  running;      // tools currently in flight (Pre - Post)
+    int32_t  total;        // cumulative tool calls (summed across sessions)
+    int32_t  running;      // tools currently in flight (summed across sessions)
+    int32_t  sessions;     // number of live Claude Code sessions
     bool     waiting;      // blocked on the human (approval / input)
     char     msg[CLAUDI_MSG_LEN];                       // latest one-line status
     char     entries[CLAUDI_MAX_ENTRIES][CLAUDI_ENTRY_LEN];  // newest last
