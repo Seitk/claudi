@@ -1,0 +1,50 @@
+/*
+ * claudi — an ESP-Brookesia phone app that mirrors Claude Code activity as a
+ * reactive pet + transcript/approval HUD on the AMOLED.
+ *
+ * The app pulls the latest activity snapshot from claudi_net (filled by the
+ * Mac-side hook over HTTP) and runs the portable claudi_core ladder to pick the
+ * pet state. V1 renders the pet programmatically (state-colored animated blob);
+ * GIF art on LittleFS is a later drop-in.
+ */
+#pragma once
+
+#include "lvgl.h"
+#include "systems/phone/esp_brookesia_phone_app.hpp"
+
+namespace esp_brookesia::apps {
+
+class ClaudiApp: public systems::phone::App {
+public:
+    static ClaudiApp *requestInstance();
+    ~ClaudiApp();
+
+protected:
+    ClaudiApp();
+
+    // Build all UI on app start (drawn on the default screen, lv_scr_act()).
+    bool run(void) override;
+    // Back gesture: close the app (returns to launcher).
+    bool back(void) override;
+
+private:
+    static ClaudiApp *_instance;
+
+    // Periodic refresh: read snapshot → derive → update widgets. Static so it
+    // can be used as an lv_timer callback; recovers `this` from user_data.
+    static void onTick(lv_timer_t *timer);
+    void applyState(void);
+
+    // Widgets (created in run(); auto-recycled by the core on close).
+    lv_obj_t *_pet = nullptr;        // lv_animimg playing the per-state slime art
+    lv_obj_t *_status = nullptr;     // top status chip label
+    lv_obj_t *_transcript = nullptr; // bottom transcript label
+    lv_obj_t *_card = nullptr;       // approval card container
+    lv_obj_t *_card_label = nullptr; // approval card text
+    lv_timer_t *_timer = nullptr;
+
+    int _last_state = -1;            // last effective state (avoid redundant work)
+    uint32_t _attention_since_ms = 0;  // for the ~10s approval escalation
+};
+
+} // namespace esp_brookesia::apps

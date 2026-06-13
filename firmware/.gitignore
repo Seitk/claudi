@@ -1,0 +1,18 @@
+# ESP-IDF build output and fetched components
+/build/
+/managed_components/
+sdkconfig
+sdkconfig.old
+dependencies.lock
+
+# editor / tooling caches
+.cache/
+.clangd/
+compile_commands.json
+
+# host unit test binary
+components/claudi_core/test/test_claudi_core
+*.dSYM/
+
+# generated LVGL pet images (run tools/gen_pet_assets.py to regenerate)
+components/brookesia_app_claudi/assets/*.c

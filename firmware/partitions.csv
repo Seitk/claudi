@@ -1,0 +1,9 @@
+# Name,   Type, SubType, Offset,  Size, Flags
+# claudi-s3 partition table (32MB flash).
+# Brookesia + LVGL 9.4 + Wi-Fi/HTTP make a large app, so the factory app is 6MB.
+# `assets` is a LittleFS partition (subtype spiffs) holding the pet GIF packs,
+# so art can be replaced without reflashing firmware.
+nvs,      data, nvs,     ,        0x6000,
+phy_init, data, phy,     ,        0x1000,
+factory,  app,  factory, ,        6M,
+assets,   data, spiffs,  ,        8M,
