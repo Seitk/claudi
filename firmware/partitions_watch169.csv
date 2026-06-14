@@ -1,0 +1,7 @@
+# Name,   Type, SubType, Offset,  Size, Flags
+# claudi watch169 partition table (16MB flash).
+# Same shape as the AMOLED table, sized for 16MB: 6MB app + 9MB assets.
+nvs,      data, nvs,     ,        0x6000,
+phy_init, data, phy,     ,        0x1000,
+factory,  app,  factory, ,        6M,
+assets,   data, spiffs,  ,        9M,

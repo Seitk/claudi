@@ -1,7 +1,10 @@
 # ESP-IDF build output and fetched components
 /build/
+/build.watch/
 /managed_components/
 sdkconfig
+sdkconfig.amoled
+sdkconfig.watch
 sdkconfig.old
 dependencies.lock
 

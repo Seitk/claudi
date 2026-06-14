@@ -3,10 +3,9 @@
 #
 CONFIG_IDF_TARGET="esp32s3"
 CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
-# This board reports 32MB flash from esptool (vendor sheet says 16MB; trust the chip).
-CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y
+# Board-specific flash size + partition table live in the per-board overlay
+# (sdkconfig.defaults.<board>), applied by `make amoled` / `make watch`.
 CONFIG_PARTITION_TABLE_CUSTOM=y
-CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y

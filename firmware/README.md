@@ -1,11 +1,19 @@
-# claudi-s3 firmware
+# claudi firmware
 
-A Claude Code companion for the **Waveshare ESP32-S3-Touch-AMOLED-1.75** (466×466
-CO5300 AMOLED, CST9217 touch, 8 MB PSRAM, 32 MB flash). claudi runs as an
-**ESP-Brookesia** app: it shows a reactive pet + transcript/approval HUD driven
-live by Claude Code activity.
+A Claude Code companion device: a reactive pet + transcript/approval HUD, driven
+live by Claude Code activity, running as an **ESP-Brookesia** app.
 
-See the design spec: `../docs/superpowers/specs/2026-06-13-claudi-s3-amoled-pet-hud-design.md`.
+**Multi-board** — one codebase, build-time board selection via the `claudi_board`
+HAL. App/UI geometry is responsive (driven by the live display size + board
+shape), so the same code lays out on round and rectangular panels.
+
+| Board (`CLAUDI_BOARD`) | Display | Status |
+|---|---|---|
+| `amoled175` (default) | Waveshare ESP32-S3-Touch-AMOLED-1.75 — 466×466 round CO5300 (QSPI), CST9217 touch, AXP2101 PMU, 32 MB | fully supported |
+| `watch169` | ESPWatch 1.69 — 240×280 ST7789V2 (SPI), CST816 touch, QMI8658 IMU, no PMU, 16 MB | **Phase 2** — display bring-up stubbed |
+
+Design specs: `../docs/superpowers/specs/2026-06-13-claudi-s3-amoled-pet-hud-design.md`
+and `../docs/superpowers/specs/2026-06-14-espwatch-multiboard-port-design.md`.
 
 ## How it works
 
@@ -25,7 +33,11 @@ implements the device side of the protocol it already speaks.
 |---|---|---|
 | `claudi_core` | Snapshot model + state-derivation ladder + overlay timing | none (portable C, host-tested) |
 | `claudi_net` | Wi-Fi STA + mDNS `claudi.local` + HTTP server (`/snapshot`, `/status`, `/pet/state`) | esp_wifi, esp_http_server, mdns, json |
-| `brookesia_app_claudi` | The ESP-Brookesia app: pet + HUD renderer (LVGL) | brookesia_core, LVGL |
+| `claudi_board` | Board HAL interface (display/lock/i2c/backlight/battery/info) + Kconfig board choice | none (header) |
+| `claudi_board_amoled175` | HAL impl wrapping the Waveshare AMOLED BSP + AXP2101 battery | waveshare BSP, claudi_power |
+| `claudi_board_watch169` | HAL impl for the 1.69 watch (ST7789V2 SPI) — Phase 2 stub | esp_lcd, esp_lvgl_port (Phase 2) |
+| `claudi_ui` | Pure responsive-geometry helper (`claudi_layout_*`), host-tested | none (portable C) |
+| `brookesia_app_claudi` | The ESP-Brookesia app: pet + HUD renderer (LVGL), responsive | claudi_board, claudi_ui, brookesia_core, LVGL |
 | `brookesia_core` | Vendored ESP-Brookesia 0.6.0-beta2 (Phone system) | LVGL 9.4 |
 
 State ladder (in `claudi_core`): `attention` (waiting/approval) > `working`
@@ -42,13 +54,26 @@ ESP-IDF **v5.5** with the esp32s3 toolchain installed at `~/esp/esp-idf`:
 
 ## Build / flash / monitor
 
+Pick the board with the make wrappers (each keeps its own `sdkconfig.<board>` and
+build dir, so they never cross-contaminate):
+
 ```sh
 cd firmware
-idf.py build
-idf.py -p /dev/cu.usbmodem3101 flash monitor   # native USB-Serial/JTAG
+make amoled          # Waveshare 1.75 AMOLED  -> build/
+make watch           # ESPWatch 1.69          -> build.watch/
+make flash-amoled    # build + flash + monitor on the auto-detected $(PORT)
+make flash-watch
 ```
 
-Console/logs are routed to the native USB-Serial/JTAG (the port esptool detects).
+`export.sh` here needs **Python 3.13**; if it can't find its venv, prepend a shim
+(`python3 -> python3.13`) before sourcing:
+
+```sh
+export PATH="$HOME/.esp_shim/bin:$PATH"   # ln -s /opt/homebrew/bin/python3.13 ~/.esp_shim/bin/python3
+. ~/esp/esp-idf/export.sh
+```
+
+Console/logs route to the native USB-Serial/JTAG (the port esptool detects).
 
 ## Wi-Fi credentials
 
