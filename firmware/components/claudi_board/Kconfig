@@ -1,0 +1,16 @@
+menu "claudi board"
+
+choice CLAUDI_BOARD
+    prompt "Target board"
+    default CLAUDI_BOARD_AMOLED175
+    help
+        Selects which claudi_board implementation is compiled in.
+
+    config CLAUDI_BOARD_AMOLED175
+        bool "Waveshare ESP32-S3-Touch-AMOLED-1.75 (466x466 round)"
+
+    config CLAUDI_BOARD_WATCH169
+        bool "ESPWatch 1.69 (240x280 ST7789V2) [Phase 2 — stub]"
+endchoice
+
+endmenu
