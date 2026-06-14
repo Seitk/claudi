@@ -36,7 +36,9 @@ lv_display_t *claudi_board_display_start(void)
 
 esp_err_t claudi_board_backlight_on(void) { return bsp_display_backlight_on(); }
 
-bool claudi_board_lock(int timeout_ms) { return bsp_display_lock(timeout_ms); }
+// bsp_display_lock() returns esp_err_t (ESP_OK == 0 on success); convert to the
+// HAL's bool contract (true == locked). Returning it raw would invert the result.
+bool claudi_board_lock(int timeout_ms) { return bsp_display_lock(timeout_ms) == ESP_OK; }
 void claudi_board_unlock(void)         { bsp_display_unlock(); }
 
 i2c_master_bus_handle_t claudi_board_i2c_handle(void) { return bsp_i2c_get_handle(); }
