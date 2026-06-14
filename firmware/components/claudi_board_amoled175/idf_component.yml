@@ -1,0 +1,6 @@
+## IDF Component Manager Manifest File
+# The Waveshare board support package (CO5300 AMOLED, CST9217 touch, LVGL port,
+# codec, IMU, RTC, PMU). Owned by this board impl so a non-AMOLED build does not
+# need it. Pulls in LVGL, the LVGL adapter, esp_lcd drivers, etc.
+dependencies:
+  waveshare/esp32_s3_touch_amoled_1_75: "2.0.5"

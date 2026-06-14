@@ -1,7 +1,14 @@
+# Build-time board selection: main requires the HAL header plus exactly one impl.
+if(CONFIG_CLAUDI_BOARD_WATCH169)
+    set(claudi_board_impl claudi_board_watch169)
+else()
+    set(claudi_board_impl claudi_board_amoled175)
+endif()
+
 idf_component_register(
     SRCS "main.cpp"
     INCLUDE_DIRS "."
-    REQUIRES brookesia_core claudi_net claudi_core claudi_power
+    REQUIRES brookesia_core claudi_net claudi_core claudi_imu claudi_board ${claudi_board_impl}
 )
 
 target_compile_options(${COMPONENT_LIB} PUBLIC -Wno-missing-field-initializers)
