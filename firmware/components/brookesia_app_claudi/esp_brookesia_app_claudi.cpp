@@ -1,12 +1,12 @@
 /*
- * claudi ESP-Brookesia app — see header. Round 466x466 AMOLED UI:
- *   - state-coloured perimeter ring
- *   - "claudi status" (state word) curved along the top arc
- *   - Wi-Fi + battery icons row near the top
- *   - a floating bubble with the live Claude-session count (shown only when >0)
- *   - the slime pet (per-state 2-frame animation) centered
- *   - bottom status line
- *   - approval card with on-screen Approve/Deny/Skip + the BOOT button
+ * claudi ESP-Brookesia app — see header. Responsive: the same code lays out on
+ * any resolution/shape (driven by the live display size + the board shape from
+ * the claudi_board HAL):
+ *   ROUND (e.g. 466x466 AMOLED): state-coloured perimeter ring + curved top-arc
+ *     status word + side bubbles + centered pet + bottom status line.
+ *   RECT/portrait (e.g. 240x280 watch): top status strip (straight state word +
+ *     Wi-Fi/battery/session bubbles) + big centered pet + bottom status line.
+ *   Both share the slime pet animation and the approval card.
  */
 #include "esp_brookesia_app_claudi.hpp"
 
@@ -22,22 +22,24 @@
 #include <cmath>
 #include <cstring>
 
+#include "claudi_ui_layout.h"
+#include "claudi_board.h"
+
 extern "C" {
 #include "claudi_core.h"
 #include "claudi_net.h"
-#include "claudi_power.h"
 #include "iot_button.h"
 #include "button_gpio.h"
 }
 
 #define CLAUDI_BUTTON_GPIO   0
 #define CLAUDI_LONG_PRESS_MS 800
-
-#define SCREEN_CX 233
-#define SCREEN_CY 233
-#define ARC_RADIUS 196
 #define ARC_STEP_DEG 8.0f
 #define BATTERY_POLL_MS 5000
+
+// Pet source frames are 172x172; render the pet at ~52% of the short side
+// (reproduces the historical 360 zoom on the 466 AMOLED).
+#define PET_FRAC 0.52f
 
 #define APP_NAME "claudi"
 
@@ -121,16 +123,17 @@ ClaudiApp::ClaudiApp(): App(APP_NAME, nullptr, true, false, false) {}
 ClaudiApp::~ClaudiApp() {}
 
 static lv_obj_t *make_card_button(lv_obj_t *parent, const char *text, uint32_t bg,
-                                  lv_event_cb_t cb, void *user)
+                                  lv_event_cb_t cb, void *user, int w, int h,
+                                  const lv_font_t *font)
 {
     lv_obj_t *btn = lv_button_create(parent);
-    lv_obj_set_size(btn, 120, 56);
-    lv_obj_set_style_radius(btn, 28, 0);
+    lv_obj_set_size(btn, w, h);
+    lv_obj_set_style_radius(btn, h / 2, 0);
     lv_obj_set_style_bg_color(btn, lv_color_hex(bg), 0);
     lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, user);
     lv_obj_t *lab = lv_label_create(btn);
     lv_label_set_text(lab, text);
-    lv_obj_set_style_text_font(lab, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(lab, font, 0);
     lv_obj_center(lab);
     return btn;
 }
@@ -160,61 +163,97 @@ bool ClaudiApp::run(void)
 {
     ESP_UTILS_LOGI("claudi run");
 
+    // Responsive geometry from the live display + board shape.
+    const claudi_board_info_t *bi = claudi_board_info();
+    _is_round = (bi->shape == CLAUDI_SHAPE_ROUND);
+    lv_display_t *disp = lv_display_get_default();
+    int16_t W = (int16_t)lv_display_get_horizontal_resolution(disp);
+    int16_t H = (int16_t)lv_display_get_vertical_resolution(disp);
+    claudi_layout_t L = claudi_layout_compute(W, H, _is_round ? CLAUDI_LAYOUT_ROUND
+                                                              : CLAUDI_LAYOUT_RECT);
+    _cx = L.cx;
+    _cy = L.cy;
+    _arc_radius = (int16_t)(L.safe_radius * 0.84f);
+
+    const int bub      = _is_round ? 52 : 40;
+    const int rail_off = (int)(L.safe_radius * 0.74f);
+    const lv_font_t *bub_font = _is_round ? &lv_font_montserrat_20 : &lv_font_montserrat_18;
+    const lv_font_t *sess_font = _is_round ? &lv_font_montserrat_22 : &lv_font_montserrat_18;
+    const int card_w = (int)(L.short_side * 0.86f);
+    const int card_h = (int)(L.short_side * 0.45f);
+    const int btn_w  = (int)(card_w * 0.30f);
+    const int btn_h  = (int)(card_h * 0.27f);
+    const lv_font_t *btn_font = _is_round ? &lv_font_montserrat_20 : &lv_font_montserrat_18;
+
     lv_obj_t *scr = lv_scr_act();
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x07070C), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
     lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Perimeter ring (state colour). Decorative — don't intercept touches.
-    _ring = lv_obj_create(scr);
-    lv_obj_set_size(_ring, 462, 462);
-    lv_obj_center(_ring);
-    lv_obj_set_style_radius(_ring, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_opa(_ring, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(_ring, 10, 0);
-    lv_obj_set_style_border_color(_ring, lv_color_hex(style_for(CLAUDI_STATE_IDLE).body), 0);
-    lv_obj_clear_flag(_ring, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_clear_flag(_ring, LV_OBJ_FLAG_SCROLLABLE);
+    // Perimeter ring (round boards only) — state colour, decorative.
+    if (_is_round) {
+        _ring = lv_obj_create(scr);
+        lv_obj_set_size(_ring, L.short_side - 4, L.short_side - 4);
+        lv_obj_center(_ring);
+        lv_obj_set_style_radius(_ring, LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_bg_opa(_ring, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(_ring, 10, 0);
+        lv_obj_set_style_border_color(_ring, lv_color_hex(style_for(CLAUDI_STATE_IDLE).body), 0);
+        lv_obj_clear_flag(_ring, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_clear_flag(_ring, LV_OBJ_FLAG_SCROLLABLE);
+    }
 
-    // Pet animation, centered.
+    // Straight state-word label (rect/portrait boards; round boards use the arc).
+    if (!_is_round) {
+        _word_label = lv_label_create(scr);
+        lv_obj_set_style_text_font(_word_label, &lv_font_montserrat_20, 0);
+        lv_obj_align(_word_label, LV_ALIGN_TOP_MID, 0, 8);
+        lv_label_set_text(_word_label, "");
+    }
+
+    // Pet animation, centered. Scale derived from the short side.
     _pet = lv_animimg_create(scr);
     lv_animimg_set_src(_pet, (const void **)kPetFrames[CLAUDI_STATE_IDLE], 2);
     lv_animimg_set_duration(_pet, 700);
     lv_animimg_set_repeat_count(_pet, LV_ANIM_REPEAT_INFINITE);
     lv_animimg_start(_pet);
-    lv_image_set_scale(_pet, 360);
-    lv_obj_align(_pet, LV_ALIGN_CENTER, 0, 4);
+    lv_image_set_scale(_pet, claudi_layout_image_zoom(L.short_side, 172, PET_FRAC));
+    lv_obj_align(_pet, LV_ALIGN_CENTER, 0, _is_round ? 4 : -6);
 
-    // Bubbles on the left and right rails (clear of the centered pet): Wi-Fi and
-    // battery stacked on the left, session count on the right (room for a second
-    // right-side bubble later).
-    _wifi_bubble = make_bubble(scr, &_wifi_label, 52, 0x1A1A22, &lv_font_montserrat_20);
-    lv_obj_align(_wifi_bubble, LV_ALIGN_CENTER, -172, -40);
+    // Status bubbles: Wi-Fi + battery + session count. Round boards stack them on
+    // the side rails clear of the pet; rect boards tuck them into the top strip.
+    _wifi_bubble = make_bubble(scr, &_wifi_label, bub, 0x1A1A22, bub_font);
     lv_label_set_text(_wifi_label, LV_SYMBOL_WIFI);
-
-    _batt_bubble = make_bubble(scr, &_batt_label, 52, 0x1A1A22, &lv_font_montserrat_20);
-    lv_obj_align(_batt_bubble, LV_ALIGN_CENTER, -172, 40);
+    _batt_bubble = make_bubble(scr, &_batt_label, bub, 0x1A1A22, bub_font);
     lv_label_set_text(_batt_label, LV_SYMBOL_BATTERY_FULL);
-
-    _sess_bubble = make_bubble(scr, &_sess_label, 52, 0x2E6BE6, &lv_font_montserrat_22);
-    lv_obj_align(_sess_bubble, LV_ALIGN_CENTER, 172, -40);
+    _sess_bubble = make_bubble(scr, &_sess_label, bub, 0x2E6BE6, sess_font);
     lv_label_set_text(_sess_label, "0");
     lv_obj_add_flag(_sess_bubble, LV_OBJ_FLAG_HIDDEN);
 
+    if (_is_round) {
+        lv_obj_align(_wifi_bubble, LV_ALIGN_CENTER, -rail_off, -40);
+        lv_obj_align(_batt_bubble, LV_ALIGN_CENTER, -rail_off, 40);
+        lv_obj_align(_sess_bubble, LV_ALIGN_CENTER, rail_off, -40);
+    } else {
+        lv_obj_align(_wifi_bubble, LV_ALIGN_TOP_LEFT, 6, 6);
+        lv_obj_align(_batt_bubble, LV_ALIGN_TOP_RIGHT, -6, 6);
+        lv_obj_align(_sess_bubble, LV_ALIGN_TOP_LEFT, 6, 6 + bub + 4);
+    }
+
     // Bottom status line.
     _transcript = lv_label_create(scr);
-    lv_obj_set_width(_transcript, 300);
+    lv_obj_set_width(_transcript, (int)(L.short_side * 0.64f));
     lv_label_set_long_mode(_transcript, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(_transcript, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(_transcript, LV_ALIGN_BOTTOM_MID, 0, -50);
+    lv_obj_align(_transcript, LV_ALIGN_BOTTOM_MID, 0, _is_round ? -50 : -6);
     lv_obj_set_style_text_color(_transcript, lv_color_hex(0x9A9AB0), 0);
     lv_obj_set_style_text_font(_transcript, &lv_font_montserrat_18, 0);
     lv_label_set_text(_transcript, "");
 
     // Approval card: text + Approve/Deny/Skip buttons.
     _card = lv_obj_create(scr);
-    lv_obj_set_size(_card, 400, 210);
-    lv_obj_align(_card, LV_ALIGN_CENTER, 0, 40);
+    lv_obj_set_size(_card, card_w, card_h);
+    lv_obj_align(_card, LV_ALIGN_CENTER, 0, _is_round ? 40 : 30);
     lv_obj_set_style_radius(_card, 22, 0);
     lv_obj_set_style_bg_color(_card, lv_color_hex(0x1A1320), 0);
     lv_obj_set_style_border_color(_card, lv_color_hex(0xE8533F), 0);
@@ -223,19 +262,19 @@ bool ClaudiApp::run(void)
     lv_obj_add_flag(_card, LV_OBJ_FLAG_HIDDEN);
 
     _card_label = lv_label_create(_card);
-    lv_obj_set_width(_card_label, 360);
+    lv_obj_set_width(_card_label, (int)(card_w * 0.9f));
     lv_label_set_long_mode(_card_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(_card_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(_card_label, LV_ALIGN_TOP_MID, 0, 6);
     lv_obj_set_style_text_color(_card_label, lv_color_hex(0xFFE0DA), 0);
-    lv_obj_set_style_text_font(_card_label, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(_card_label, _is_round ? &lv_font_montserrat_20 : &lv_font_montserrat_18, 0);
     lv_label_set_text(_card_label, "");
 
-    lv_obj_t *approve = make_card_button(_card, "Approve", 0x2E7D46, on_touch_approve, this);
+    lv_obj_t *approve = make_card_button(_card, "Approve", 0x2E7D46, on_touch_approve, this, btn_w, btn_h, btn_font);
     lv_obj_align(approve, LV_ALIGN_BOTTOM_LEFT, 4, -6);
-    lv_obj_t *dismiss = make_card_button(_card, "Skip", 0x3A3A48, on_touch_dismiss, this);
+    lv_obj_t *dismiss = make_card_button(_card, "Skip", 0x3A3A48, on_touch_dismiss, this, btn_w, btn_h, btn_font);
     lv_obj_align(dismiss, LV_ALIGN_BOTTOM_MID, 0, -6);
-    lv_obj_t *deny = make_card_button(_card, "Deny", 0xB23121, on_touch_deny, this);
+    lv_obj_t *deny = make_card_button(_card, "Deny", 0xB23121, on_touch_deny, this, btn_w, btn_h, btn_font);
     lv_obj_align(deny, LV_ALIGN_BOTTOM_RIGHT, -4, -6);
 
     // BOOT button (GPIO0): short = approve, long = deny. Created once.
@@ -283,6 +322,15 @@ void ClaudiApp::setArcText(const char *text, uint32_t color)
     _arc_cache[sizeof(_arc_cache) - 1] = '\0';
     _arc_color = color;
 
+    // Rect/portrait boards: a single straight label, no curved per-char arc.
+    if (!_is_round) {
+        if (_word_label) {
+            lv_label_set_text(_word_label, text);
+            lv_obj_set_style_text_color(_word_label, lv_color_hex(color), 0);
+        }
+        return;
+    }
+
     for (int i = 0; i < kMaxArcChars; ++i) {
         if (_arc_chars[i]) {
             lv_obj_del(_arc_chars[i]);
@@ -303,8 +351,8 @@ void ClaudiApp::setArcText(const char *text, uint32_t color)
         lv_obj_set_style_text_font(lab, &lv_font_montserrat_24, 0);
         float deg = start + i * ARC_STEP_DEG;
         float rad = deg * 3.14159265f / 180.0f;
-        int dx = (int)(ARC_RADIUS * cosf(rad));
-        int dy = (int)(ARC_RADIUS * sinf(rad));
+        int dx = (int)(_arc_radius * cosf(rad));
+        int dy = (int)(_arc_radius * sinf(rad));
         lv_obj_set_style_transform_pivot_x(lab, lv_pct(50), 0);
         lv_obj_set_style_transform_pivot_y(lab, lv_pct(50), 0);
         lv_obj_set_style_transform_rotation(lab, (int)((deg + 90.0f) * 10.0f), 0);
@@ -334,11 +382,13 @@ void ClaudiApp::applyState(void)
     if ((int)d.effective != _last_state) {
         lv_animimg_set_src(_pet, (const void **)kPetFrames[d.effective], 2);
         lv_animimg_start(_pet);
-        lv_obj_set_style_border_color(_ring, lv_color_hex(st.body), 0);
+        if (_ring) {
+            lv_obj_set_style_border_color(_ring, lv_color_hex(st.body), 0);
+        }
         _last_state = (int)d.effective;
     }
 
-    // Curved status (state word only — stable, so it rarely rebuilds).
+    // Status word: curved arc (round) or straight label (rect) — handled inside.
     setArcText(st.tag, st.body);
 
     // Wi-Fi bubble: glyph brightens when connected, bubble tints green.
@@ -348,8 +398,8 @@ void ClaudiApp::applyState(void)
     // Battery bubble (polled every few seconds; I2C is comparatively slow).
     uint32_t now = now_ms();
     if (_batt_pct < 0 || (now - _last_batt_ms) > BATTERY_POLL_MS) {
-        _batt_pct = claudi_power_battery_percent();
-        _charging = claudi_power_charging();
+        _batt_pct = claudi_board_battery_percent();
+        _charging = claudi_board_charging();
         _last_batt_ms = now;
         if (_batt_pct < 0) {
             lv_obj_add_flag(_batt_bubble, LV_OBJ_FLAG_HIDDEN);

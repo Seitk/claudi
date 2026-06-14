@@ -53,6 +53,7 @@ private:
     lv_obj_t *_transcript = nullptr; // bottom status line
     lv_obj_t *_card = nullptr;       // approval card container
     lv_obj_t *_card_label = nullptr; // approval card text
+    lv_obj_t *_word_label = nullptr; // straight state-word label (rect/portrait boards)
     lv_timer_t *_timer = nullptr;
 
     char _arc_cache[48] = "";        // last arc string (avoid rebuilds)
@@ -64,6 +65,11 @@ private:
     uint32_t _last_batt_ms = 0;      // throttle battery polling (I2C)
     int _batt_pct = -1;              // cached battery percent
     bool _charging = false;          // cached charge state
+
+    // Layout, computed in run() from the live display + board shape.
+    int16_t _cx = 0, _cy = 0;        // screen center
+    int16_t _arc_radius = 0;         // status-arc radius (round boards)
+    bool _is_round = true;           // board shape: round vs rect/portrait
 };
 
 } // namespace esp_brookesia::apps
