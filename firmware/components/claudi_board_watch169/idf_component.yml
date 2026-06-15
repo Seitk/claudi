@@ -1,0 +1,7 @@
+## IDF Component Manager Manifest File
+# Managed dependencies for the ESPWatch 1.69 display path (ST7789V2 SPI + CST816
+# touch via esp_lvgl_port). Owned by this board impl so a non-watch build does not
+# pull them. esp_lcd_touch_cst816s transitively pulls esp_lcd_touch.
+dependencies:
+  espressif/esp_lvgl_port: "^2.6.0"
+  espressif/esp_lcd_touch_cst816s: "^1.1.1"
