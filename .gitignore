@@ -1,5 +1,29 @@
+# Rust / legacy build artifacts
 /target
 Cargo.lock.bak
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Firmware build outputs
+/firmware/build
+/firmware/build.watch
+
+# Editors / OS
+.vscode/
 .DS_Store
 *.swp
-/firmware/build
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Claudi hook runtime log + host-side snapshot state
+.claude/hooks/claudi_hook.log
+.claude/hooks/claudi_hook_state.json*
+.claude/hooks/.claudi_selftest_state.json*
+
+# Superpowers brainstorming visual-companion scratch
+.superpowers/

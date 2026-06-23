@@ -102,10 +102,22 @@ APPROVAL_TOOLS = os.environ.get("CLAUDI_APPROVAL_TOOLS", "*")
 # Number of HTTP attempts (1 = no retry). Retries are cheap and bounded.
 ATTEMPTS = max(1, int(os.environ.get("CLAUDI_ATTEMPTS", "1")))
 
-# Where to log / persist host-side snapshot state. Default next to this script.
+# Where to log / persist host-side snapshot state.
+#   * LOG_FILE stays next to this script (one fixed debug log).
+#   * STATE_FILE lives in ~/.claude so the session counter aggregates EVERY Claude
+#     session on the machine, not just ones started in this project. (The hook is
+#     wired into ~/.claude/settings.json for the same reason.)
 _HERE = os.path.dirname(os.path.abspath(__file__))
+_GLOBAL_DIR = os.path.expanduser(os.environ.get("CLAUDI_HOME", "~/.claude"))
 LOG_FILE = os.environ.get("CLAUDI_LOG_FILE", os.path.join(_HERE, "claudi_hook.log"))
-STATE_FILE = os.environ.get("CLAUDI_STATE_FILE", os.path.join(_HERE, "claudi_hook_state.json"))
+STATE_FILE = os.environ.get("CLAUDI_STATE_FILE", os.path.join(_GLOBAL_DIR, "claudi_hook_state.json"))
+
+# Circuit breaker: when the device is unreachable we must not stall every hook in
+# every session on a network timeout. The first failure records a short cooldown
+# (shared across all sessions via this file); while it's active we skip the
+# network entirely and just keep the local snapshot up to date.
+NET_FLAG_FILE = STATE_FILE + ".net"
+NET_COOLDOWN = float(os.environ.get("CLAUDI_NET_COOLDOWN", "20"))
 
 # Cap the log file size (bytes); when exceeded we truncate. Keeps things tidy.
 LOG_MAX_BYTES = int(os.environ.get("CLAUDI_LOG_MAX_BYTES", str(256 * 1024)))
@@ -130,9 +142,16 @@ THINK_TOOLS = {"Task", "TodoWrite", "ExitPlanMode"}
 # Logging
 # --------------------------------------------------------------------------- #
 
+def _ensure_parent_dir(path: str) -> None:
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+
 def log(msg: str) -> None:
     line = f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n"
     try:
+        _ensure_parent_dir(LOG_FILE)
         try:
             if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > LOG_MAX_BYTES:
                 with open(LOG_FILE, "w", encoding="utf-8") as fh:
@@ -173,6 +192,7 @@ def _state_lock():
     fh = None
     try:
         import fcntl  # noqa: PLC0415 - unix only, optional
+        _ensure_parent_dir(STATE_FILE)
         fh = open(STATE_FILE + ".lock", "w")
         fcntl.flock(fh, fcntl.LOCK_EX)
     except Exception:  # noqa: BLE001
@@ -235,6 +255,7 @@ def get_session(sessions: dict, session_id: str) -> dict:
 def save_all(sessions: dict) -> None:
     tmp = STATE_FILE + ".tmp"
     try:
+        _ensure_parent_dir(STATE_FILE)
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump({"sessions": sessions}, fh)
         os.replace(tmp, STATE_FILE)
@@ -345,11 +366,16 @@ def apply_event(state: dict, payload: dict):
         overlay = _overlay_for_post(tool)
 
     elif event == "Notification":
-        # Claude needs the human: surface as a waiting/approval snapshot so the
-        # device derives `attention` (highest priority on the ladder).
+        # Claude needs the human (permission prompt, a question, or idle "waiting
+        # for input"). Surface as `waiting` so the device derives `attention` and
+        # shows a short message — but DON'T set a `prompt`. A `prompt` means an
+        # on-device-answerable yes/no approval (the pollable handle_approval path);
+        # a Notification is not answerable from the device (multiple-choice
+        # questions, plan approval...), so the device shows attention + message and
+        # the user answers in the terminal. No misleading Approve/Deny buttons.
         message = (payload.get("message") or "needs you").strip().replace("\n", " ")
         state["waiting"] = True
-        state["prompt"] = {"id": "notif", "tool": tool, "hint": message[:60]}
+        state["prompt"] = None
         state["msg"] = message[:48]
         _add_entry(state, f"! {message}")
 
@@ -413,6 +439,31 @@ def _http(url: str, data: bytes | None = None, method: str | None = None) -> str
     raise last_err if last_err else RuntimeError("unknown http error")
 
 
+def _net_in_cooldown() -> bool:
+    """True if a recent failure put the device in its skip-the-network window."""
+    try:
+        with open(NET_FLAG_FILE, "r", encoding="utf-8") as fh:
+            return time.time() < float(fh.read().strip() or 0)
+    except (OSError, ValueError):
+        return False
+
+
+def _net_set_down() -> None:
+    try:
+        _ensure_parent_dir(NET_FLAG_FILE)
+        with open(NET_FLAG_FILE, "w", encoding="utf-8") as fh:
+            fh.write(str(time.time() + NET_COOLDOWN))
+    except OSError:
+        pass
+
+
+def _net_set_up() -> None:
+    try:
+        os.remove(NET_FLAG_FILE)
+    except OSError:
+        pass
+
+
 def build_snapshot(state: dict, event: str, overlay, overlay_ms: int) -> dict:
     snap = {
         "total": int(state.get("total", 0)),
@@ -445,21 +496,35 @@ def send_snapshot(state: dict, event: str, overlay, overlay_ms: int) -> bool:
               f"overlay={overlay or '-'} -> {url}")
         return True
 
+    # Circuit breaker: a recent failure means the device is (probably) gone. Skip
+    # the network so we don't add a timeout to every hook in every session.
+    if _net_in_cooldown():
+        log(f"[skip] device in cooldown; not sending event={event}")
+        return False
+
     if USE_SNAPSHOT:
         try:
             resp = _http(url, data=body.encode("utf-8"), method="POST")
+            _net_set_up()  # reachable again
             log(f"[ok] snapshot event={event} running={snap['running']} "
                 f"waiting={snap['waiting']} overlay={overlay or '-'} <- {resp.strip()[:120]}")
             return True
         except urllib.error.HTTPError as exc:
-            if exc.code != 404:
-                log(f"[unreachable] snapshot http {exc.code}; falling back to /pet/state")
-            else:
+            # The device answered (it's reachable), it just doesn't like this
+            # request. Only a 404 (old firmware, no /snapshot) is worth the legacy
+            # fallback; any other HTTP error we report and stop.
+            _net_set_up()
+            if exc.code == 404:
                 log("[info] /snapshot 404 (old firmware?); falling back to /pet/state")
-        except Exception as exc:  # noqa: BLE001
-            log(f"[unreachable] snapshot err={exc!r}; falling back to /pet/state")
+                return _send_legacy(effective, snap["msg"])
+            log(f"[error] snapshot http {exc.code}")
+            return False
+        except Exception as exc:  # noqa: BLE001 - timeout / refused -> device gone
+            _net_set_down()
+            log(f"[unreachable] snapshot err={exc!r}; cooling down {NET_COOLDOWN:.0f}s")
+            return False
 
-    # Legacy fallback: GET /pet/state?state=<effective> (+ optional /render).
+    # Legacy-only mode (USE_SNAPSHOT disabled): GET /pet/state (+ optional /render).
     return _send_legacy(effective, snap["msg"])
 
 
