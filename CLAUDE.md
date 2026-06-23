@@ -137,6 +137,5 @@ Gotchas:
   IDF 5.5). Re-add them only if enabling the AI framework (e.g. voice).
 - The board reports **32 MB** flash even though the vendor sheet says 16 MB — trust
   the chip; `partitions.csv` and `sdkconfig.defaults` are sized for 32 MB.
-- Design spec and decision history: `docs/superpowers/specs/`.
 - Flashing replaces the demo ESP-Brookesia OS image the board ships with; the
   factory firmware lives in the Waveshare sample repo if a restore is needed.

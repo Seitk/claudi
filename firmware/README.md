@@ -15,9 +15,6 @@ shape), so the same code lays out on round and rectangular panels.
 | `amoled175` (default) | Waveshare ESP32-S3-Touch-AMOLED-1.75 — 466×466 round CO5300 (QSPI), CST9217 touch, AXP2101 PMU, 32 MB | fully supported |
 | `watch169` | ESPWatch 1.69 — 240×280 ST7789V2 (SPI), CST816 touch, QMI8658 IMU, no PMU, 16 MB | **Phase 2** — display bring-up stubbed |
 
-Design specs: `../docs/superpowers/specs/2026-06-13-claudi-s3-amoled-pet-hud-design.md`
-and `../docs/superpowers/specs/2026-06-14-espwatch-multiboard-port-design.md`.
-
 ## How it works
 
 ```
