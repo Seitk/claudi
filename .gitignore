@@ -25,5 +25,8 @@ __pycache__/
 .claude/hooks/claudi_hook_state.json*
 .claude/hooks/.claudi_selftest_state.json*
 
-# Superpowers brainstorming visual-companion scratch
+# Superpowers / scratch / local planning files
 .superpowers/
+.claude/skills/
+/Skill/
+/docs/superpowers/
