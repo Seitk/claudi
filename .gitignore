@@ -10,3 +10,5 @@ Cargo.lock.bak
 /.claude/hooks/claudi_hook_state.json
 /.claude/hooks/claudi_hook_state.json.lock
 /firmware/tools/__pycache__/
+
+/docs/superpowers
