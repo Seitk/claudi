@@ -3,3 +3,10 @@ Cargo.lock.bak
 .DS_Store
 *.swp
 /firmware/build
+/firmware/build.watch
+/.superpowers
+/.claude/hooks/__pycache__/
+/.claude/hooks/claudi_hook.log
+/.claude/hooks/claudi_hook_state.json
+/.claude/hooks/claudi_hook_state.json.lock
+/firmware/tools/__pycache__/
