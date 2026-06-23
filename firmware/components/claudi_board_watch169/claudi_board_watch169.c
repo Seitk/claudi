@@ -50,6 +50,13 @@ static const char *TAG = "board.watch169";
 // 24 KB (BSP default 8 KB overflowed). Match that here.
 #define LVGL_TASK_STACK (24 * 1024)
 
+// Bring-up gate: set 0 to skip CST816 touch init (isolates the display path so
+// the screen can be confirmed even if the touch I2C pins are wrong). Re-enable
+// once the touch pinout is verified on hardware.
+#ifndef WATCH_ENABLE_TOUCH
+#define WATCH_ENABLE_TOUCH 0   // TEMP: off for display bring-up; re-enable once touch pins verified
+#endif
+
 static i2c_master_bus_handle_t s_i2c_bus = NULL;
 
 // Lazy-create the shared I2C master bus (touch + IMU + RTC live on it).
@@ -123,6 +130,7 @@ lv_display_t *claudi_board_display_start(void)
     esp_lcd_panel_swap_xy(panel, false);
     esp_lcd_panel_mirror(panel, false, false);
     esp_lcd_panel_disp_on_off(panel, true);
+    ESP_LOGI(TAG, "CHK: ST7789 panel up");
 
     // --- LVGL port (owns the LVGL task, tick, and lock) ---
     lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
@@ -131,6 +139,7 @@ lv_display_t *claudi_board_display_start(void)
         ESP_LOGE(TAG, "lvgl_port_init failed");
         return NULL;
     }
+    ESP_LOGI(TAG, "CHK: lvgl_port_init done");
 
     lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = io,
@@ -153,13 +162,17 @@ lv_display_t *claudi_board_display_start(void)
         ESP_LOGE(TAG, "lvgl_port_add_disp failed");
         return NULL;
     }
+    ESP_LOGI(TAG, "CHK: lvgl_port_add_disp done");
 
     // --- CST816 touch on the shared I2C bus ---
+#if WATCH_ENABLE_TOUCH
     i2c_master_bus_handle_t bus = i2c_bus_get();
+    ESP_LOGI(TAG, "CHK: i2c bus %s", bus ? "ok" : "FAILED");
     if (bus != NULL) {
         esp_lcd_panel_io_handle_t tp_io = NULL;
         esp_lcd_panel_io_i2c_config_t tp_io_cfg = ESP_LCD_TOUCH_IO_I2C_CST816S_CONFIG();
         if (esp_lcd_new_panel_io_i2c(bus, &tp_io_cfg, &tp_io) == ESP_OK) {
+            ESP_LOGI(TAG, "CHK: touch panel-io i2c ok, init cst816...");
             esp_lcd_touch_handle_t tp = NULL;
             esp_lcd_touch_config_t tp_cfg = {
                 .x_max = LCD_H_RES,
@@ -186,8 +199,13 @@ lv_display_t *claudi_board_display_start(void)
             ESP_LOGW(TAG, "touch panel-io create failed; touch disabled");
         }
     }
+#else
+    ESP_LOGW(TAG, "touch DISABLED for bring-up (WATCH_ENABLE_TOUCH=0)");
+#endif
 
+    ESP_LOGI(TAG, "CHK: touch setup done");
     claudi_board_backlight_on();
+    ESP_LOGI(TAG, "CHK: display_start returning");
     return disp;
 }
 
