@@ -3,6 +3,8 @@
 A Claude Code companion device: a reactive pet + transcript/approval HUD, driven
 live by Claude Code activity, running as an **ESP-Brookesia** app.
 
+For a practical build guide, see [`../BUILD.md`](../BUILD.md).
+
 **Multi-board** — one codebase, build-time board selection via the `claudi_board`
 HAL. App/UI geometry is responsive (driven by the live display size + board
 shape), so the same code lays out on round and rectangular panels.
