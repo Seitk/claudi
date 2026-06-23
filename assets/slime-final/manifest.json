@@ -1,0 +1,306 @@
+{
+  "frame_size": {
+    "w": 172,
+    "h": 172
+  },
+  "screen_size": {
+    "w": 320,
+    "h": 172
+  },
+  "states": {
+    "idle": {
+      "sheet": "sheetA",
+      "frame_index": 0,
+      "frame_png": "sheetA/01-idle-frame00.png",
+      "frame_count": 2,
+      "frames": [
+        "sheetA/01-idle-frame00.png",
+        "sheetA/01-idle-frame01.png"
+      ],
+      "screen_preview_png": "sheetA/01-idle-frame00-screen320x172.png",
+      "bbox_in_source_slice": {
+        "x0": 37,
+        "y0": 375,
+        "x1": 353,
+        "y1": 633
+      },
+      "animation_variants": [
+        {},
+        {
+          "dy": 2
+        }
+      ]
+    },
+    "blink": {
+      "sheet": "sheetA",
+      "frame_index": 1,
+      "frame_png": "sheetA/02-blink-frame00.png",
+      "frame_count": 2,
+      "frames": [
+        "sheetA/02-blink-frame00.png",
+        "sheetA/02-blink-frame01.png"
+      ],
+      "screen_preview_png": "sheetA/02-blink-frame00-screen320x172.png",
+      "bbox_in_source_slice": {
+        "x0": 36,
+        "y0": 375,
+        "x1": 351,
+        "y1": 633
+      },
+      "animation_variants": [
+        {},
+        {
+          "sy": 0.94,
+          "dy": 1
+        }
+      ]
+    },
+    "happy": {
+      "sheet": "sheetA",
+      "frame_index": 2,
+      "frame_png": "sheetA/03-happy-frame00.png",
+      "frame_count": 2,
+      "frames": [
+        "sheetA/03-happy-frame00.png",
+        "sheetA/03-happy-frame01.png"
+      ],
+      "screen_preview_png": "sheetA/03-happy-frame00-screen320x172.png",
+      "bbox_in_source_slice": {
+        "x0": 22,
+        "y0": 375,
+        "x1": 338,
+        "y1": 633
+      },
+      "animation_variants": [
+        {},
+        {
+          "dy": -3,
+          "sx": 1.01,
+          "sy": 1.03
+        }
+      ]
+    },
+    "idea": {
+      "sheet": "sheetA",
+      "frame_index": 3,
+      "frame_png": "sheetA/04-idea-frame00.png",
+      "frame_count": 2,
+      "frames": [
+        "sheetA/04-idea-frame00.png",
+        "sheetA/04-idea-frame01.png"
+      ],
+      "screen_preview_png": "sheetA/04-idea-frame00-screen320x172.png",
+      "bbox_in_source_slice": {
+        "x0": 4,
+        "y0": 302,
+        "x1": 333,
+        "y1": 633
+      },
+      "animation_variants": [
+        {},
+        {
+          "dy": -2,
+          "sx": 1.02,
+          "sy": 1.02
+        }
+      ]
+    },
+    "sleepy": {
+      "sheet": "sheetB",
+      "frame_index": 0,
+      "frame_png": "sheetB/01-sleepy-frame00.png",
+      "frame_count": 2,
+      "frames": [
+        "sheetB/01-sleepy-frame00.png",
+        "sheetB/01-sleepy-frame01.png"
+      ],
+      "screen_preview_png": "sheetB/01-sleepy-frame00-screen320x172.png",
+      "bbox_in_source_slice": {
+        "x0": 46,
+        "y0": 387,
+        "x1": 370,
+        "y1": 632
+      },
+      "animation_variants": [
+        {},
+        {
+          "dy": 2,
+          "sy": 0.98
+        }
+      ]
+    },
+    "curious": {
+      "sheet": "sheetB",
+      "frame_index": 1,
+      "frame_png": "sheetB/02-curious-frame00.png",
+      "frame_count": 2,
+      "frames": [
+        "sheetB/02-curious-frame00.png",
+        "sheetB/02-curious-frame01.png"
+      ],
+      "screen_preview_png": "sheetB/02-curious-frame00-screen320x172.png",
+      "bbox_in_source_slice": {
+        "x0": 35,
+        "y0": 387,
+        "x1": 359,
+        "y1": 631
+      },
+      "animation_variants": [
+        {},
+        {
+          "dx": 2,
+          "dy": -1,
+          "sx": 1.01
+        }
+      ]
+    },
+    "alert": {
+      "sheet": "sheetB",
+      "frame_index": 2,
+      "frame_png": "sheetB/03-alert-frame00.png",
+      "frame_count": 2,
+      "frames": [
+        "sheetB/03-alert-frame00.png",
+        "sheetB/03-alert-frame01.png"
+      ],
+      "screen_preview_png": "sheetB/03-alert-frame00-screen320x172.png",
+      "bbox_in_source_slice": {
+        "x0": 24,
+        "y0": 387,
+        "x1": 349,
+        "y1": 632
+      },
+      "animation_variants": [
+        {},
+        {
+          "dy": -2,
+          "sx": 1.02,
+          "sy": 1.02
+        }
+      ]
+    },
+    "bored": {
+      "sheet": "sheetB",
+      "frame_index": 3,
+      "frame_png": "sheetB/04-bored-frame00.png",
+      "frame_count": 2,
+      "frames": [
+        "sheetB/04-bored-frame00.png",
+        "sheetB/04-bored-frame01.png"
+      ],
+      "screen_preview_png": "sheetB/04-bored-frame00-screen320x172.png",
+      "bbox_in_source_slice": {
+        "x0": 14,
+        "y0": 387,
+        "x1": 337,
+        "y1": 632
+      },
+      "animation_variants": [
+        {},
+        {
+          "dx": -2,
+          "dy": 1,
+          "sy": 0.98
+        }
+      ]
+    },
+    "thinking": {
+      "sheet": "sheetC",
+      "frame_index": 0,
+      "frame_png": "sheetC/01-thinking-frame00.png",
+      "frame_count": 2,
+      "frames": [
+        "sheetC/01-thinking-frame00.png",
+        "sheetC/01-thinking-frame01.png"
+      ],
+      "screen_preview_png": "sheetC/01-thinking-frame00-screen320x172.png",
+      "bbox_in_source_slice": {
+        "x0": 42,
+        "y0": 309,
+        "x1": 363,
+        "y1": 674
+      },
+      "animation_variants": [
+        {},
+        {
+          "dy": -1,
+          "sx": 1.01,
+          "sy": 1.01
+        }
+      ]
+    },
+    "working": {
+      "sheet": "sheetC",
+      "frame_index": 1,
+      "frame_png": "sheetC/02-working-frame00.png",
+      "frame_count": 2,
+      "frames": [
+        "sheetC/02-working-frame00.png",
+        "sheetC/02-working-frame01.png"
+      ],
+      "screen_preview_png": "sheetC/02-working-frame00-screen320x172.png",
+      "bbox_in_source_slice": {
+        "x0": 33,
+        "y0": 340,
+        "x1": 352,
+        "y1": 672
+      },
+      "animation_variants": [
+        {},
+        {
+          "dx": 2
+        }
+      ]
+    },
+    "attention": {
+      "sheet": "sheetC",
+      "frame_index": 2,
+      "frame_png": "sheetC/03-attention-frame00.png",
+      "frame_count": 2,
+      "frames": [
+        "sheetC/03-attention-frame00.png",
+        "sheetC/03-attention-frame01.png"
+      ],
+      "screen_preview_png": "sheetC/03-attention-frame00-screen320x172.png",
+      "bbox_in_source_slice": {
+        "x0": 17,
+        "y0": 336,
+        "x1": 337,
+        "y1": 674
+      },
+      "animation_variants": [
+        {},
+        {
+          "dy": -1,
+          "sx": 1.015,
+          "sy": 1.015
+        }
+      ]
+    },
+    "excited": {
+      "sheet": "sheetC",
+      "frame_index": 3,
+      "frame_png": "sheetC/04-excited-frame00.png",
+      "frame_count": 2,
+      "frames": [
+        "sheetC/04-excited-frame00.png",
+        "sheetC/04-excited-frame01.png"
+      ],
+      "screen_preview_png": "sheetC/04-excited-frame00-screen320x172.png",
+      "bbox_in_source_slice": {
+        "x0": 19,
+        "y0": 351,
+        "x1": 338,
+        "y1": 677
+      },
+      "animation_variants": [
+        {},
+        {
+          "dy": -4,
+          "sx": 1.03,
+          "sy": 1.04
+        }
+      ]
+    }
+  }
+}

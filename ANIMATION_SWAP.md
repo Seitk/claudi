@@ -95,18 +95,19 @@ runtime still gets a stable two-frame table.
 
 ## Regenerate the Claudi assets
 
-The generator depends on the Python package `pypng`. On this machine, running it
-without that package fails inside `LVGLImage.py` with:
+The generator depends on the Python packages `pypng` and `lz4`. On this machine,
+running it without those packages failed inside `LVGLImage.py` with errors like:
 
 ```text
 ImportError: Need pypng package, do `pip3 install pypng`
+ImportError: Need lz4 package, do `pip3 install lz4`
 ```
 
-So install that first in the Python environment you plan to use for generation.
+So install those first in the Python environment you plan to use for generation.
 For example:
 
 ```sh
-python3 -m pip install pypng
+python3 -m pip install pypng lz4
 ```
 
 Then from the repo root:

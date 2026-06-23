@@ -17,12 +17,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FW = os.path.dirname(HERE)                      # firmware/
 REPO = os.path.dirname(FW)                      # repo root
 MANIFEST = os.path.join(REPO, "assets", "slime-final", "manifest.json")
+MANIFEST_DIR = os.path.dirname(MANIFEST)
 CONVERTER = os.path.join(FW, "managed_components", "lvgl__lvgl", "scripts", "LVGLImage.py")
 OUTDIR = os.path.join(FW, "components", "brookesia_app_claudi", "assets")
 
 # claudi_core's state vocabulary (must match claudi_state_name()).
 STATES = ["idle", "blink", "happy", "sleepy", "curious", "alert",
           "bored", "working", "thinking", "attention", "idea", "excited"]
+
+
+def resolve_manifest_path(path):
+    if os.path.isabs(path):
+        return path
+    return os.path.normpath(os.path.join(MANIFEST_DIR, path))
 
 
 def main():
@@ -37,6 +44,7 @@ def main():
             print(f"  WARN: state '{st}' missing from manifest; skipping")
             continue
         frames = states[st].get("frames") or [states[st]["frame_png"]]
+        frames = [resolve_manifest_path(frame) for frame in frames]
         # Always emit exactly 2 frames (duplicate if only one) for a stable table.
         if len(frames) == 1:
             frames = [frames[0], frames[0]]
