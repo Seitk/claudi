@@ -1,14 +1,14 @@
 # claudi
 
-**claudi** turns Claude Code into a living desk companion.
+**claudi** is a tiny hardware shell around Claude Code: a round-AMOLED desk pet that mirrors agent activity in real time.
 
-It is a round-AMOLED pet device that reacts to live coding activity, surfaces session status at a glance, and can optionally handle on-device approval flows for tool calls. Instead of keeping Claude Code hidden in a terminal tab, claudi makes the agent feel present on your desk.
+It listens to Claude Code hook events, ships session snapshots over HTTP, derives a compact runtime state machine on-device, and renders the result as a living pet + HUD. When the board is on the network, claudi turns "the agent is somewhere in a terminal" into something you can glance at across the room.
 
-The current hardware target is the **Waveshare ESP32-S3-Touch-AMOLED-1.75** (466×466 round AMOLED, CO5300 driver, CST9217 touch, AXP2101 PMU, 8 MB PSRAM, 32 MB flash).
+Current target hardware: **Waveshare ESP32-S3-Touch-AMOLED-1.75** — 466×466 round AMOLED, CO5300 driver, CST9217 touch, AXP2101 PMU, 8 MB PSRAM, 32 MB flash.
 
-## What this repo contains
+## What lives here
 
-This repository contains the ESP32-S3 firmware, the Claude-side hook integration that drives the device, and the supporting design/spec documentation behind the experience.
+This repo contains the ESP32-S3 firmware, the Claude-side hook plumbing, and the design/spec notes behind the device.
 
 - **Firmware:** `firmware/` — ESP-IDF v5.5 + ESP-Brookesia app for the device UI, networking, and pet behavior
 - **Host hook:** `.claude/hooks/` — sends aggregated Claude Code activity snapshots to the device
@@ -17,7 +17,7 @@ This repository contains the ESP32-S3 firmware, the Claude-side hook integration
 
 For firmware-specific implementation details, see [`firmware/README.md`](firmware/README.md).
 
-## Product flow
+## Runtime path
 
 ```text
 Claude Code event
@@ -30,9 +30,9 @@ Claude Code event
   → AMOLED pet + HUD
 ```
 
-The host hook is the source of truth for session activity. The device receives snapshot JSON, derives presentation state from it, and renders that state as a pet + HUD experience on the AMOLED.
+The host hook is the source of truth for session activity. The device receives snapshot JSON, derives presentation state from it, and paints that state onto the AMOLED as a pet + HUD.
 
-## Repository layout
+## Repo layout
 
 ```text
 .
@@ -52,7 +52,7 @@ The host hook is the source of truth for session activity. The device receives s
 └── scripts/                           # misc helper scripts
 ```
 
-## Quick start
+## Bootstrapping
 
 ### Prerequisites
 
