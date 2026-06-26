@@ -14,8 +14,22 @@ is the native USB-Serial/JTAG, typically `/dev/cu.usbmodem3101` (re-detect with
 `ls /dev/cu.usbmodem*` — it can change on replug).
 
 All firmware lives in **`firmware/`** (ESP-IDF v5.5 + ESP-Brookesia). The repo was
-pivoted from an earlier ESP32-C6 + ST7789 PlatformIO/Arduino project, now removed;
-`firmware/README.md` is the current project readme.
+pivoted from an earlier ESP32-C6 + ST7789 PlatformIO/Arduino project, now removed.
+
+Start here:
+- `README.md` — top-level project overview and quick start
+- `firmware/README.md` — firmware-specific build / architecture details
+- `docs/superpowers/specs/` — design specs and decision history
+- `.claude/hooks/` — Claude Code hook integration that drives the device
+
+## Repo map
+
+- `firmware/components/claudi_core` — portable snapshot model + state derivation
+- `firmware/components/claudi_net` — Wi-Fi, mDNS, HTTP endpoints, snapshot storage
+- `firmware/components/claudi_power` — battery / PMU integration
+- `firmware/components/brookesia_app_claudi` — LVGL / ESP-Brookesia UI app
+- `firmware/tools/` — local utility scripts such as snapshot replay and asset generation
+- `scripts/` — miscellaneous repo-level helper scripts
 
 ## Build / flash / test
 

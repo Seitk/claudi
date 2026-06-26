@@ -1,0 +1,138 @@
+# claudi
+
+**claudi** turns Claude Code into a living desk companion.
+
+It is a round-AMOLED pet device that reacts to live coding activity, surfaces session status at a glance, and can optionally handle on-device approval flows for tool calls. Instead of keeping Claude Code hidden in a terminal tab, claudi makes the agent feel present on your desk.
+
+The current hardware target is the **Waveshare ESP32-S3-Touch-AMOLED-1.75** (466×466 round AMOLED, CO5300 driver, CST9217 touch, AXP2101 PMU, 8 MB PSRAM, 32 MB flash).
+
+## What this repo contains
+
+This repository contains the ESP32-S3 firmware, the Claude-side hook integration that drives the device, and the supporting design/spec documentation behind the experience.
+
+- **Firmware:** `firmware/` — ESP-IDF v5.5 + ESP-Brookesia app for the device UI, networking, and pet behavior
+- **Host hook:** `.claude/hooks/` — sends aggregated Claude Code activity snapshots to the device
+- **Design / specs:** `docs/superpowers/specs/`
+- **Agent guidance:** `CLAUDE.md`
+
+For firmware-specific implementation details, see [`firmware/README.md`](firmware/README.md).
+
+## Product flow
+
+```text
+Claude Code event
+  → .claude/hooks/claudi-hook.sh
+  → .claude/hooks/claudi_hook.py
+  → POST http://claudi.local/snapshot
+  → firmware/components/claudi_net
+  → firmware/components/claudi_core
+  → firmware/components/brookesia_app_claudi
+  → AMOLED pet + HUD
+```
+
+The host hook is the source of truth for session activity. The device receives snapshot JSON, derives presentation state from it, and renders that state as a pet + HUD experience on the AMOLED.
+
+## Repository layout
+
+```text
+.
+├── CLAUDE.md                          # repo-specific guidance for coding agents
+├── README.md                          # top-level project overview
+├── docs/superpowers/specs/            # design specs and decision history
+├── .claude/hooks/                     # Claude Code hook integration
+├── firmware/                          # ESP-IDF firmware project
+│   ├── README.md                      # firmware-specific guide
+│   ├── components/
+│   │   ├── claudi_core/               # portable state model + derivation logic
+│   │   ├── claudi_net/                # Wi-Fi, mDNS, HTTP endpoints
+│   │   ├── claudi_power/              # battery / PMU integration
+│   │   └── brookesia_app_claudi/      # LVGL / ESP-Brookesia UI app
+│   ├── main/                          # firmware entry / component wiring
+│   └── tools/                         # local helper scripts
+└── scripts/                           # misc helper scripts
+```
+
+## Quick start
+
+### Prerequisites
+
+- macOS or Linux shell environment
+- **ESP-IDF v5.5** installed at `~/esp/esp-idf`
+- Board connected over USB when flashing
+
+### Build firmware
+
+```sh
+. ~/esp/esp-idf/export.sh
+cd firmware
+idf.py build
+```
+
+### Flash and monitor
+
+```sh
+. ~/esp/esp-idf/export.sh
+cd firmware
+idf.py -p /dev/cu.usbmodem3101 flash monitor
+```
+
+Re-check the serial port before flashing:
+
+```sh
+ls /dev/cu.usbmodem*
+```
+
+### Run host-side tests
+
+Core logic test:
+
+```sh
+cd firmware/components/claudi_core/test
+make test
+```
+
+Hook self-test:
+
+```sh
+cd /path/to/claudi
+python3 .claude/hooks/claudi_hook.py --self-test
+```
+
+Device reachability ping:
+
+```sh
+python3 .claude/hooks/claudi_hook.py --ping
+```
+
+### Replay device states without Claude Code
+
+```sh
+firmware/tools/replay_snapshot.sh http://claudi.local
+```
+
+## Architecture notes
+
+- The repo has been pivoted away from the earlier ESP32-C6 + ST7789 PlatformIO/Arduino direction.
+- The active implementation target is the **ESP32-S3 Touch AMOLED 1.75** board.
+- The snapshot JSON contract between host and device is the key interface; keep both sides in sync when changing it.
+- `claudi_core` is intentionally portable and host-tested.
+
+## Development tips
+
+- Prefer `idf.py build` over editor diagnostics; clangd may show false errors in this project.
+- Generated pet assets under `brookesia_app_claudi/assets/*.c` should be regenerated, not hand-edited.
+- If the device is unreachable at `claudi.local`, host-side tests can still validate most logic.
+
+## Current status
+
+At last verification:
+
+- `firmware/components/claudi_core/test`: PASS
+- `.claude/hooks/claudi_hook.py --self-test`: PASS
+- `.claude/hooks/claudi_hook.py --ping`: device unreachable at `claudi.local`
+
+## See also
+
+- [`CLAUDE.md`](CLAUDE.md)
+- [`firmware/README.md`](firmware/README.md)
+- `docs/superpowers/specs/`
